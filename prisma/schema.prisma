@@ -21,16 +21,18 @@ model Category {
 }
 
 model MenuItem {
-  id         Int         @id @default(autoincrement())
-  categoryId Int
-  category   Category    @relation(fields: [categoryId], references: [id])
-  name       String
-  price      Int
-  photo      String? // path under UPLOAD_DIR
-  soldOut    Boolean     @default(false)
-  active     Boolean     @default(true)
-  sortOrder  Int         @default(0)
-  orderItems OrderItem[]
+  id          Int         @id @default(autoincrement())
+  categoryId  Int
+  category    Category    @relation(fields: [categoryId], references: [id])
+  name        String
+  price       Int
+  description String? // one line, e.g. "2 burgers · 2 fries · 1.5L drink"
+  photo       String? // path under UPLOAD_DIR
+  featured    Boolean     @default(false) // shown as "Today's deal" on the menu
+  soldOut     Boolean     @default(false)
+  active      Boolean     @default(true)
+  sortOrder   Int         @default(0)
+  orderItems  OrderItem[]
 
   @@index([categoryId])
 }
@@ -152,6 +154,7 @@ enum RiderStatus {
 model Rider {
   id      Int         @id @default(autoincrement())
   name    String
+  phone   String? // customer's status page calls the rider on this
   photo   String?
   pinHash String // bcrypt of the 4-digit PIN
   active  Boolean     @default(true)
@@ -167,18 +170,18 @@ enum DeviceRole {
 
 // A logged-in tablet or phone. The cookie holds a random token; only its hash is stored.
 model Device {
-  id          Int                 @id @default(autoincrement())
-  role        DeviceRole
-  riderId     Int?
-  rider       Rider?              @relation(fields: [riderId], references: [id], onDelete: Cascade)
-  tokenHash   String              @unique @db.Char(64)
+  id           Int                 @id @default(autoincrement())
+  role         DeviceRole
+  riderId      Int?
+  rider        Rider?              @relation(fields: [riderId], references: [id], onDelete: Cascade)
+  tokenHash    String              @unique @db.Char(64)
   // Web Push subscription for this device (rider alerts).
-  pushEndpoint String?            @db.Text
+  pushEndpoint String?             @db.Text
   pushP256dh   String?
   pushAuth     String?
-  createdAt   DateTime            @default(now())
-  lastSeenAt  DateTime            @default(now())
-  checks      PaymentScreenshot[]
+  createdAt    DateTime            @default(now())
+  lastSeenAt   DateTime            @default(now())
+  checks       PaymentScreenshot[]
 
   @@index([riderId])
 }

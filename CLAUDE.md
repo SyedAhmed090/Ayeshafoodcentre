@@ -1,6 +1,6 @@
 # Ayesha Food Centre — ordering system
 
-**Status (2026-11-10): Phase 0 (foundations) done, waiting for review.** Next is Phase 1 (customer site), only after approval.
+**Status (2026-11-10): Phase 1 (customer site) done, waiting for review.** Phase 0 approved. Next is Phase 2 (front desk), only after approval.
 
 ## Run it locally
 
@@ -8,7 +8,9 @@
    `~/.local/mariadb-11.4.5-winx64/bin/mariadbd.exe --defaults-file=~/.local/hukam-db/my.ini --console`
 2. `.env` is not in git: copy `.env.example` (local `DATABASE_URL="mysql://ayesha:ayesha-dev@127.0.0.1:3307/ayesha"`, absolute `UPLOAD_DIR`).
 3. `npm install && npx prisma migrate deploy && npm run db:seed`
-4. `npm run dev` (runs `server.mjs --dev`, NOT `next dev`, otherwise no Socket.IO) → http://localhost:3000/realtime-test
+4. `npm run dev` (runs `server.mjs --dev`, NOT `next dev`, otherwise no Socket.IO) → http://localhost:3000
+5. Move an order by hand (until the counter exists): `curl -X POST localhost:3000/api/dev/status -H "content-type: application/json" -d '{"number":1,"status":"COOKING"}'`. Statuses: CHECK_PAYMENT, NEW, COOKING, READY, OUT_FOR_DELIVERY (assigns Rider 1), DELIVERED, CANCELLED. Add `"cash":true` to simulate "No money → switch to cash". Dev only (404 in production).
+6. `npm test` runs the unit tests.
 
 Seed logins: counter PIN `1234`, riders 1/2/3 PINs `1111`/`2222`/`3333`.
 
@@ -19,7 +21,13 @@ Seed logins: counter PIN `1234`, riders 1/2/3 PINs `1111`/`2222`/`3333`.
 - `src/lib/i18n/en.ts`: every staff-facing word (add `ur.ts` with the same keys later).
 - `src/app/globals.css`: Look B tokens in Tailwind 4 `@theme` (the default palette is switched off, so only these colours exist).
 - `prisma/schema.prisma` + `prisma/seed.ts`; `DEPLOY.md` for Hostinger.
-- Planned, not built yet: `src/lib/orders.ts` (state machine + undo), `order-number.ts`, `uploads.ts`. They arrive with the phases that use them.
+- Customer site: `src/app/(customer)/` (menu `/`, `/checkout`, `/order/[token]`), views in `src/components/customer/`. Framer Motion lives only here (`Motion.tsx` sets reduced-motion = user setting).
+- `src/lib/cart.ts`: cart + remembered name/phone/address in this device's localStorage; `useHydrated()` for storage-dependent screens.
+- `src/lib/orders.ts`: `placeOrder` (prices from DB, race-safe daily number, customer upsert by phone), `getPublicOrder` (what the status page may see), `announce` (socket push to `order:<token>` and `counter`), `applyStatus` (status + timestamp, no rules yet; Phase 2 adds validated moves + undo on top).
+- `src/lib/order-rules.ts`: pure input checks (unit tested in `src/lib/__tests__`).
+- `src/lib/uploads.ts`: screenshots hashed (SHA-256 of the file as uploaded), then resized with sharp and stored under `UPLOAD_DIR/screenshots/`.
+- API: `POST /api/orders` (multipart), `GET /api/orders/[token]`, dev-only `POST /api/dev/status`.
+- Animations must never make the server-rendered first view invisible (see `template.tsx`, `StepIcon`): only live changes animate.
 
 ## What this is
 
@@ -112,3 +120,12 @@ Full menu + prices, food/deal photos, delivery area + fee, opening hours, JazzCa
 - Undo needs no event table: each state's previous state follows from the state machine, plus `paymentMethod`/screenshot (a wallet order switched to cash = COD with a screenshot). The 10s window comes from the status timestamp.
 - "Paid" is derived (walk-in, or a wallet order past CHECK_PAYMENT), not stored.
 - Socket.IO falls back to long polling by itself if WebSockets are blocked, which covers the brief's SSE+polling fallback (see DEPLOY.md §4).
+
+## Decisions made in Phase 1
+
+- Schema additions the designs needed (not in the brief's table): `MenuItem.description` (deal card's "2 burgers · 2 fries · 1.5L drink"), `MenuItem.featured` ("Today's deal" card; owner picks it in Phase 4), `Rider.phone` (status page "Call rider" button).
+- The deal card is the whole button: tapping it adds the deal (the design has no + on it).
+- Status page wording not in the designs: titles per status, "Starting soon" (NEW), "Waiting for the rider" (READY), "Payment not found / Please pay cash to the rider" (switched to cash), cancelled text. Review with the user.
+- Desktop proposal = same tokens, wider container: menu grid 3–4 columns, checkout in two columns, status page centred.
+- Shop closed: header says "Closed now", + buttons and Place order disabled, API refuses. Sold out: card greyed, "Sold out" instead of +.
+- Prisma migrate dev lowercased `menuitem` and `rider` in two migrations; fixed by hand (see DEPLOY.md gotchas).

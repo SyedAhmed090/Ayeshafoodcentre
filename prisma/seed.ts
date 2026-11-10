@@ -16,8 +16,9 @@ const db = new PrismaClient({
   }),
 });
 
-const menu: [string, [string, number][]][] = [
-  ["Deals", [["Family Deal", 1450]]],
+type Item = [name: string, price: number, extra?: { description?: string; featured?: boolean }];
+const menu: [string, Item[]][] = [
+  ["Deals", [["Family Deal", 1450, { description: "2 burgers · 2 fries · 1.5L drink", featured: true }]]],
   [
     "Burgers",
     [
@@ -49,7 +50,7 @@ async function main() {
         data: {
           name,
           sortOrder: i,
-          items: { create: items.map(([n, price], j) => ({ name: n, price, sortOrder: j })) },
+          items: { create: items.map(([n, price, extra], j) => ({ name: n, price, sortOrder: j, ...extra })) },
         },
       });
     }
@@ -58,7 +59,7 @@ async function main() {
 
   if ((await db.rider.count()) === 0) {
     for (const [i, pin] of ["1111", "2222", "3333"].entries()) {
-      await db.rider.create({ data: { name: `Rider ${i + 1}`, pinHash: await bcrypt.hash(pin, 10) } });
+      await db.rider.create({ data: { name: `Rider ${i + 1}`, phone: "0300 0000000", pinHash: await bcrypt.hash(pin, 10) } });
     }
     console.log("Riders seeded (PINs 1111, 2222, 3333)");
   }
