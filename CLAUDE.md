@@ -2,6 +2,32 @@
 
 **Status (2026-11-10): Phase 2 (front desk) done, waiting for review.** Phases 0–1 approved. Next is Phase 3 (rider app), only after approval.
 
+## Resume here
+
+1. `git fetch` and check you're up to date with `origin/main` (last commit: `phase-2: front desk dashboard`).
+2. Re-read the live brief doc in case it changed since `docs/BRIEF.md` was copied.
+3. Phase 2 is waiting for the user's review. Start Phase 3 only after they approve, and first ask about the open review points below.
+4. Start the database and `npm run dev` (see "Run it locally"). After stopping a background dev server, also kill the leftover `node server.mjs` process, or the next start fails with "port in use".
+
+### Open points for the user to approve (raised, not yet answered)
+
+- Phase 1: the three schema additions (`MenuItem.description`, `MenuItem.featured`, `Rider.phone`), the status-page wording I wrote, the deal card being tappable as a whole.
+- Phase 2: the PIN login, "No money" choice screen and Undo bar (no designs existed); Framer Motion card sliding on the counter (brief lists Framer as customer-only); undoing a fresh walk-in marks it Cancelled.
+- Not yet tried on real devices: the chime and wake lock on the counter tablet; the checkout screen visually on a phone.
+- Earlier: who sets the counter PIN (assumed: owner, in Phase 4 settings); placeholder prices for Chicken Roll / Fries / Drink (300 / 200 / 100).
+- Hukam (separate project) is still on Next 16.4.0, which has critical advisories; offered to upgrade it.
+
+### Phase 3 (rider app): what to build next
+
+From the brief, plus what Phases 0–2 already prepared:
+- `/counter/rider/[id]` "Pick a rider" (design `CounterRider`): every active rider's photo with Free / Out on delivery; tapping a free rider = READY → OUT_FOR_DELIVERY, sets `riderId`, rider `OUT`. Add a `pickRider` move next to `MOVES` in `order-rules.ts` (its undo is already in `undoTarget`/`undoOrder`: clears the rider and frees them). Show the undo bar like other counter actions.
+- `/rider`: login by tapping your photo + 4-digit PIN (`Rider.pinHash`; reuse `signInDevice("RIDER", riderId)` and the `rate-limit.ts` pattern from `counterLogin`). Then: full-screen red alert (design `RiderAlert`) with sound + vibration → Go → delivery screen (design `RiderDelivery`): Call (`tel:` customer), Map (Google Maps search URL with the address), Delivered (OUT → DELIVERED, rider `FREE`; undo already handled). One order at a time.
+- Rider socket room: emit only `{id}` like the counter room, and load data through a rider-authenticated route.
+- Web Push so the phone rings with the app in the background: `Device.pushEndpoint/pushP256dh/pushAuth` already exist. Copy hukam's `web-push` setup (`~/hukam/src/lib/push.ts`, `src/app/sw.js`, `src/app/manifest.ts`, VAPID env vars). PWA manifest + service worker for installing on rider phones.
+- "Tap to start" + wake lock on the rider phone too (reuse `chime.ts`; consider moving the start overlay out of `CounterShell` into a shared component).
+- Remove `/api/dev/status` once riders can deliver.
+- The new words go in `src/lib/i18n/en.ts` (rider keys already exist).
+
 ## Run it locally
 
 1. Start the local database (portable MariaDB 11.4 shared with hukam, port 3307):
@@ -21,12 +47,13 @@ Seed logins: counter PIN `1234`, riders 1/2/3 PINs `1111`/`2222`/`3333`.
 - `src/lib/i18n/en.ts`: every staff-facing word (add `ur.ts` with the same keys later).
 - `src/app/globals.css`: Look B tokens in Tailwind 4 `@theme` (the default palette is switched off, so only these colours exist).
 - `prisma/schema.prisma` + `prisma/seed.ts`; `DEPLOY.md` for Hostinger.
-- Customer site: `src/app/(customer)/` (menu `/`, `/checkout`, `/order/[token]`), views in `src/components/customer/`. Framer Motion lives only here (`Motion.tsx` sets reduced-motion = user setting).
+- Customer site: `src/app/(customer)/` (menu `/`, `/checkout`, `/order/[token]`), views in `src/components/customer/`. `Motion.tsx` sets reduced motion to follow the phone's setting.
 - `src/lib/cart.ts`: cart + remembered name/phone/address in this device's localStorage; `useHydrated()` for storage-dependent screens.
-- `src/lib/orders.ts`: `placeOrder` (prices from DB, race-safe daily number, customer upsert by phone), `getPublicOrder` (what the status page may see), `announce` (socket push to `order:<token>` and `counter`), `applyStatus` (status + timestamp, no rules yet; Phase 2 adds validated moves + undo on top).
-- `src/lib/order-rules.ts`: pure input checks (unit tested in `src/lib/__tests__`).
+- `src/lib/orders.ts`: `placeOrder` (prices from DB, race-safe daily number, customer upsert by phone), `getPublicOrder` (what the status page may see), `announce` (socket push to `order:<token>` and `counter`), `applyStatus` (status + timestamp with no rules; used only by the dev route), plus the counter functions below.
+- `src/lib/order-rules.ts`: pure input checks, the move table and undo rules (unit tested in `src/lib/__tests__`).
 - `src/lib/uploads.ts`: screenshots hashed (SHA-256 of the file as uploaded), then resized with sharp and stored under `UPLOAD_DIR/screenshots/`.
-- API: `POST /api/orders` (multipart), `GET /api/orders/[token]`, dev-only `POST /api/dev/status`.
+- API: `POST /api/orders` (multipart), `GET /api/orders/[token]`, `GET /api/counter/board`, `GET /api/counter/screenshot/[id]` (counter only), dev-only `POST /api/dev/status`, Phase 0 `/realtime-test` (keep until the Hostinger WebSocket check is done).
+- Shared icons: `src/components/icons.tsx`.
 - Animations must never make the server-rendered first view invisible (see `template.tsx`, `StepIcon`): only live changes animate.
 - Counter: `src/app/counter/` — `login/` (PIN pad), `(desk)/` (board `page.tsx`, `check/[id]`, `walkin/`; layout requires the counter device), `actions.ts` (every action checks the device). Views in `src/components/staff/`.
 - `CounterShell.tsx` (in the counter layout): live board data, chime until a new card is tapped, Tap to start (unlocks audio + wake lock), undo bar. Kept in the layout so they work on every counter screen.
@@ -86,7 +113,7 @@ new → cooking → ready ─┬─ delivery: Pick rider → out_for_delivery �
 ```
 Every screen is a view of orders in some states. Store a timestamp per status change. Rider is `out` when assigned, `free` again on Delivered.
 
-## Things I noticed that the brief leaves open / to raise at Phase 0
+## Gaps in the brief noted before Phase 0 (all handled; kept for context)
 
 - **Fonts:** brief says Google Fonts (Space Grotesk + Inter). On Hostinger, `next/font/google` is a known problem with Next 16 builds → self-host the same two fonts (`@fontsource` or local woff2). Same look, not a design change.
 - **Hostinger + custom server + WebSockets:** brief wants this confirmed in Phase 0 with SSE+polling fallback. Known Hostinger Next quirks: build with `next build --webpack`, server cwd ≠ project dir (resolve paths from `__dirname`), `/public` bypasses `next.config` headers. `uploads/` must live outside the build output and be served by a route.
@@ -100,23 +127,17 @@ Every screen is a view of orders in some states. Store a timestamp per status ch
 - Customer desktop layout has no design — Phase 1 must *propose* one with the same tokens.
 - Brief says designs come "as exported images"; we have the HTML source instead, which is better (exact values).
 
-## Look B tokens (put in Tailwind config, use nothing else)
+## Look B tokens (in `src/app/globals.css` `@theme`; nothing else exists)
 
 Ink `#171717` · Ground `#F1F0EC` · Surface `#FFFFFF` · Line `#E4E2DC` · Muted `#5E5E5E` · Accent red `#C8281E`
 Check blue `#2456D6` (tint `#E5ECFC`, text `#1B3FA0`) · New tint `#FBE6E3` (text `#8E1A12`)
 Cooking amber `#F2B01E` (tint `#FFF1CC`, text `#5F4400`) · Ready green `#1F7A45` (tint `#E1F3E8`, text `#17693A`)
 Radius 12–16 buttons, 18–22 cards · Card shadow `0 6px 16px rgba(23,23,23,0.05)` · Space Grotesk headings/numbers, Inter body.
-Designs also use a few off-token greys (`#3F3F3F`, `#CFCDC6`, `#8A8780`, `#6B6B6B`, `#A81F16`); decide at Phase 0 whether to add them as tokens or map them.
+The designs' off-list greys were added as extra tokens (`ink-2`, `line-2`, `accent-ink`, … in `globals.css`) so screens match exactly.
 
 ## Inputs still needed from the shop (none block Phases 0–4)
 
 Full menu + prices, food/deal photos, delivery area + fee, opening hours, JazzCash/Easypaisa merchant number, shop phone, riders (names, photos), logo, domain, Hostinger plan confirmation (Node.js + WebSockets).
-
-## Resume here
-
-1. `git fetch` and check you're up to date with `origin/main`.
-2. Re-read the live brief doc in case it changed since this copy.
-3. Phase 0 is waiting for review. Start Phase 1 only after the user approves.
 
 ## Decisions made in Phase 0
 
