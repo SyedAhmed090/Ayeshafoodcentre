@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Customer menu</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap">
+<style>
+body{margin:0}
+a{color:#171717}a:hover{color:#000000}
+</style>
+</helmet>
+<div style="width: 390px; height: 900px; box-sizing: border-box; padding: 20px; display: flex; flex-direction: column; gap: 16px; background: #FFFFFF; color: #171717; font-family: 'Inter', system-ui, sans-serif">
+<div style="display: flex; align-items: center; justify-content: space-between">
+<div style="display: flex; flex-direction: column; gap: 2px">
+<div style="font-family: 'Space Grotesk', system-ui, sans-serif; font-size: 22px; font-weight: 700; letter-spacing: -0.3px">Ayesha Food Centre</div>
+<div style="display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 500; color: #5E5E5E">
+<span style="width: 8px; height: 8px; border-radius: 4px; background: #1F7A45"></span>
+Open now · Home delivery
+</div>
+</div>
+<button aria-label="Call the shop" style="width: 44px; height: 44px; border-radius: 22px; border: 1px solid #E4E2DC; background: #FFFFFF; color: #171717; display: flex; align-items: center; justify-content: center">
+<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2z"/></svg>
+</button>
+</div>
+<div style="height: 164px; flex-shrink: 0; box-sizing: border-box; border-radius: 22px; background: #171717; color: #FFFFFF; padding: 18px; display: flex; align-items: center; justify-content: space-between; gap: 12px">
+<div style="display: flex; flex-direction: column; gap: 4px">
+<div style="align-self: flex-start; background: #C8281E; border-radius: 8px; padding: 3px 9px; font-size: 11px; font-weight: 700; letter-spacing: 1px">TODAY'S DEAL</div>
+<div style="font-family: 'Space Grotesk', system-ui, sans-serif; font-size: 26px; font-weight: 700; letter-spacing: -0.4px; line-height: 1.1">Family Deal</div>
+<div style="font-size: 13px; color: #CFCFCF">2 burgers · 2 fries · 1.5L drink</div>
+<div style="font-family: 'Space Grotesk', system-ui, sans-serif; font-size: 20px; font-weight: 700">Rs 1,450</div>
+</div>
+<div style="width: 116px; height: 116px; flex-shrink: 0; border-radius: 58px; background: #2A2A2A; display: flex; align-items: center; justify-content: center; font-size: 12px; color: #CFCFCF">Deal photo</div>
+</div>
+<div style="display: flex; gap: 8px">
+<button style="height: 44px; padding: 0 18px; border-radius: 12px; border: 0; background: #171717; color: #FFFFFF; font: inherit; font-size: 15px; font-weight: 600">Burgers</button>
+<button style="height: 44px; padding: 0 18px; border-radius: 12px; border: 0; background: #F1F0EC; color: #171717; font: inherit; font-size: 15px; font-weight: 600">Rolls</button>
+<button style="height: 44px; padding: 0 18px; border-radius: 12px; border: 0; background: #F1F0EC; color: #171717; font: inherit; font-size: 15px; font-weight: 600">Fries</button>
+<button style="height: 44px; padding: 0 18px; border-radius: 12px; border: 0; background: #F1F0EC; color: #171717; font: inherit; font-size: 15px; font-weight: 600">Drinks</button>
+</div>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px">
+<sc-for list="{{items}}" as="item" hint-placeholder-count="4">
+<div style="border: 1px solid #E4E2DC; border-radius: 18px; padding: 10px; display: flex; flex-direction: column; gap: 8px">
+<div style="height: 110px; border-radius: 12px; background: #F1F0EC; display: flex; align-items: center; justify-content: center; font-size: 12px; color: #5E5E5E">Food photo</div>
+<div style="font-size: 15px; font-weight: 600">{{item.name}}</div>
+<div style="display: flex; align-items: center; justify-content: space-between">
+<div style="font-family: 'Space Grotesk', system-ui, sans-serif; font-size: 17px; font-weight: 700">{{item.price}}</div>
+<button aria-label="Add to cart" style="width: 44px; height: 44px; border-radius: 12px; border: 0; background: #C8281E; color: #FFFFFF; display: flex; align-items: center; justify-content: center">
+<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+</button>
+</div>
+</div>
+</sc-for>
+</div>
+<a href="Checkout.dc.html" style="margin-top: auto; height: 60px; flex-shrink: 0; border-radius: 16px; background: #C8281E; color: #FFFFFF; text-decoration: none; font-size: 16px; font-weight: 600; padding: 0 20px; display: flex; align-items: center; justify-content: space-between">
+<span>2 items</span>
+<span>View cart · Rs 950</span>
+</a>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":900}}'>
+class Component extends DCLogic {
+renderVals() {
+return { items: [
+{ name: 'Zinger Burger', price: 'Rs 450' },
+{ name: 'Chicken Burger', price: 'Rs 350' },
+{ name: 'Beef Burger', price: 'Rs 400' },
+{ name: 'Double Zinger', price: 'Rs 650' }
+] };
+}
+}
+</script>
+</body>
+</html>

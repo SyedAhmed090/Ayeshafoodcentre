@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Counter pick a rider</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap">
+<style>
+body{margin:0}
+a{color:#171717}a:hover{color:#000000}
+</style>
+</helmet>
+<div style="width: 1180px; height: 820px; box-sizing: border-box; display: flex; flex-direction: column; background: #F1F0EC; color: #171717; font-family: 'Inter', system-ui, sans-serif">
+<div style="height: 88px; flex-shrink: 0; box-sizing: border-box; background: #FFFFFF; border-bottom: 1px solid #E4E2DC; padding: 0 24px; display: flex; align-items: center; gap: 16px">
+<a href="CounterOrders.dc.html" aria-label="Back to orders" style="width: 56px; height: 56px; border-radius: 16px; border: 1px solid #E4E2DC; color: #171717; display: flex; align-items: center; justify-content: center">
+<svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>
+</a>
+<div style="font-family: 'Space Grotesk', system-ui, sans-serif; font-size: 28px; font-weight: 700; letter-spacing: -0.5px">Who takes order #45?</div>
+</div>
+<div style="flex-grow: 1; padding: 24px; display: flex; gap: 24px">
+<div style="width: 300px; flex-shrink: 0; box-sizing: border-box; background: #FFFFFF; border: 1px solid #E4E2DC; border-radius: 22px; box-shadow: 0 6px 16px rgba(23,23,23,0.05); padding: 20px; display: flex; flex-direction: column; gap: 14px">
+<div style="display: flex; align-items: center; justify-content: space-between">
+<div style="font-family: 'Space Grotesk', system-ui, sans-serif; font-size: 44px; font-weight: 700; line-height: 1; letter-spacing: -1px">#45</div>
+<div style="background: #E1F3E8; color: #17693A; border-radius: 10px; padding: 6px 12px; font-size: 15px; font-weight: 700">Ready</div>
+</div>
+<div style="font-size: 18px; font-weight: 500; line-height: 1.45; color: #3F3F3F">2 × Chicken Burger<br>1 × Fries</div>
+<div style="font-size: 16px; line-height: 1.45; color: #5E5E5E; border-top: 1px solid #E4E2DC; padding-top: 14px">[Customer name]<br>[Delivery address]</div>
+<div style="margin-top: auto; background: #171717; color: #FFFFFF; border-radius: 16px; padding: 14px 18px; display: flex; flex-direction: column; gap: 2px">
+<div style="font-size: 14px; font-weight: 600; color: #CFCFCF">Rider collects</div>
+<div style="font-family: 'Space Grotesk', system-ui, sans-serif; font-size: 44px; font-weight: 700; line-height: 1.05; letter-spacing: -1px">Rs 900</div>
+</div>
+</div>
+<div style="flex-grow: 1; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px">
+<a href="CounterOrders.dc.html" style="border-radius: 22px; background: #FFFFFF; border: 1px solid #E4E2DC; box-shadow: 0 6px 16px rgba(23,23,23,0.05); color: #171717; text-decoration: none; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; padding: 16px">
+<span style="width: 180px; height: 180px; border-radius: 90px; background: #F1F0EC; display: flex; align-items: center; justify-content: center; font-size: 14px; color: #5E5E5E">Rider photo</span>
+<span style="font-family: 'Space Grotesk', system-ui, sans-serif; font-size: 30px; font-weight: 700; letter-spacing: -0.5px; line-height: 1">Rider 1</span>
+<span style="height: 52px; padding: 0 22px; border-radius: 14px; background: #1F7A45; color: #FFFFFF; display: flex; align-items: center; gap: 8px; font-size: 20px; font-weight: 600">
+<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12l6 6L20 6"/></svg>
+Free
+</span>
+</a>
+<a href="CounterOrders.dc.html" style="border-radius: 22px; background: #FFFFFF; border: 1px solid #E4E2DC; box-shadow: 0 6px 16px rgba(23,23,23,0.05); color: #171717; text-decoration: none; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; padding: 16px">
+<span style="width: 180px; height: 180px; border-radius: 90px; background: #F1F0EC; display: flex; align-items: center; justify-content: center; font-size: 14px; color: #5E5E5E">Rider photo</span>
+<span style="font-family: 'Space Grotesk', system-ui, sans-serif; font-size: 30px; font-weight: 700; letter-spacing: -0.5px; line-height: 1">Rider 2</span>
+<span style="height: 52px; padding: 0 22px; border-radius: 14px; background: #1F7A45; color: #FFFFFF; display: flex; align-items: center; gap: 8px; font-size: 20px; font-weight: 600">
+<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12l6 6L20 6"/></svg>
+Free
+</span>
+</a>
+<div style="border-radius: 22px; background: #E7E5E0; border: 1px dashed #A8A59D; color: #4A4A4A; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; padding: 16px">
+<span style="width: 180px; height: 180px; border-radius: 90px; background: #D6D3CC; display: flex; align-items: center; justify-content: center; font-size: 14px; color: #4A4A4A">Rider photo</span>
+<span style="font-family: 'Space Grotesk', system-ui, sans-serif; font-size: 30px; font-weight: 700; letter-spacing: -0.5px; line-height: 1">Rider 3</span>
+<span style="height: 52px; padding: 0 22px; border-radius: 14px; background: #4A4A4A; color: #FFFFFF; display: flex; align-items: center; gap: 8px; font-size: 20px; font-weight: 600">
+<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="17" r="3"/><circle cx="18" cy="17" r="3"/><path d="M6 17l4-8h4l4 8M9 9H6M14 9l1-3h3"/></svg>
+Out on delivery
+</span>
+</div>
+</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1180,"height":820}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Counter check payment</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap">
+<style>
+body{margin:0}
+a{color:#171717}a:hover{color:#000000}
+</style>
+</helmet>
+<div style="width: 1180px; height: 820px; box-sizing: border-box; display: flex; flex-direction: column; background: #F1F0EC; color: #171717; font-family: 'Inter', system-ui, sans-serif">
+<div style="height: 88px; flex-shrink: 0; box-sizing: border-box; background: #FFFFFF; border-bottom: 1px solid #E4E2DC; padding: 0 24px; display: flex; align-items: center; gap: 16px">
+<a href="CounterOrders.dc.html" aria-label="Back to orders" style="width: 56px; height: 56px; border-radius: 16px; border: 1px solid #E4E2DC; color: #171717; display: flex; align-items: center; justify-content: center">
+<svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>
+</a>
+<div style="font-family: 'Space Grotesk', system-ui, sans-serif; font-size: 28px; font-weight: 700; letter-spacing: -0.5px">Order #48</div>
+<div style="height: 40px; border-radius: 12px; background: #E5ECFC; color: #1B3FA0; display: flex; align-items: center; gap: 8px; padding: 0 14px; font-size: 17px; font-weight: 700">
+<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6" y="2" width="12" height="20" rx="2"/><path d="M10 18h4"/></svg>
+Check payment
+</div>
+</div>
+<div style="flex-grow: 1; padding: 24px; display: flex; gap: 24px">
+<div style="width: 360px; flex-shrink: 0; box-sizing: border-box; background: #FFFFFF; border: 1px solid #E4E2DC; border-radius: 22px; box-shadow: 0 6px 16px rgba(23,23,23,0.05); padding: 18px; display: flex; flex-direction: column; gap: 12px">
+<div style="font-size: 16px; font-weight: 600; color: #5E5E5E">Customer's screenshot</div>
+<div style="flex-grow: 1; border-radius: 14px; border: 1.5px dashed #8A8780; background: #F1F0EC; display: flex; align-items: center; justify-content: center; text-align: center; font-size: 16px; font-weight: 500; line-height: 1.45; color: #4A4A4A; padding: 24px">The uploaded JazzCash / Easypaisa screenshot shows here, full size. Tap to zoom.</div>
+</div>
+<div style="flex-grow: 1; display: flex; flex-direction: column; gap: 24px">
+<div style="background: #FFFFFF; border: 1px solid #E4E2DC; border-radius: 22px; box-shadow: 0 6px 16px rgba(23,23,23,0.05); padding: 24px 30px; display: flex; flex-direction: column; gap: 6px">
+<div style="font-size: 18px; font-weight: 600; color: #5E5E5E">Money to find</div>
+<div style="font-family: 'Space Grotesk', system-ui, sans-serif; font-size: 124px; font-weight: 700; line-height: 1; letter-spacing: -4px">Rs 1,000</div>
+<div style="display: flex; align-items: center; gap: 10px; font-size: 19px; font-weight: 600; color: #1B3FA0">
+<svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6" y="2" width="12" height="20" rx="2"/><path d="M10 18h4"/></svg>
+Open the shop's merchant app. Is this amount there?
+</div>
+</div>
+<div style="flex-grow: 1; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px">
+<a href="CounterOrders.dc.html" style="border-radius: 22px; background: #1F7A45; color: #FFFFFF; text-decoration: none; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px">
+<svg viewBox="0 0 24 24" width="120" height="120" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12l6 6L20 6"/></svg>
+<span style="font-family: 'Space Grotesk', system-ui, sans-serif; font-size: 34px; font-weight: 700; letter-spacing: -0.5px">Money came</span>
+</a>
+<a href="CounterOrders.dc.html" style="border-radius: 22px; background: #FFFFFF; border: 2px solid #C8281E; box-sizing: border-box; color: #A81F16; text-decoration: none; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px">
+<svg viewBox="0 0 24 24" width="120" height="120" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+<span style="font-family: 'Space Grotesk', system-ui, sans-serif; font-size: 34px; font-weight: 700; letter-spacing: -0.5px">No money</span>
+</a>
+</div>
+</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1180,"height":820}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>
