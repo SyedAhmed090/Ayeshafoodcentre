@@ -1,4 +1,4 @@
-// Stroke icons from the screen designs. Decorative: buttons carry their own label.
+// Stroke icons from the screen designs, shared by customer and staff screens. Decorative: buttons carry their own label.
 
 type P = { size?: number; strokeWidth?: number };
 const base = (size: number, sw: number) => ({
@@ -70,5 +70,32 @@ export const PhoneCardIcon = ({ size = 22, strokeWidth = 2 }: P) => (
   <svg {...base(size, strokeWidth)}>
     <rect x="6" y="2" width="12" height="20" rx="2" />
     <path d="M10 18h4" />
+  </svg>
+);
+export const UndoIcon = ({ size = 24, strokeWidth = 2.4 }: P) => (
+  <svg {...base(size, strokeWidth)}>
+    <path d="M9 14L4 9l5-5" />
+    <path d="M4 9h11a5 5 0 0 1 0 10h-3" />
+  </svg>
+);
+export const BellIcon = ({ size = 24, strokeWidth = 2.2 }: P) => (
+  <svg {...base(size, strokeWidth)}>
+    <path d="M6 17V11a6 6 0 0 1 12 0v6l2 2H4zM10 21h4" />
+  </svg>
+);
+export const AlarmIcon = ({ size = 80, strokeWidth = 1.8 }: P) => (
+  <svg {...base(size, strokeWidth)}>
+    <path d="M6 17V11a6 6 0 0 1 12 0v6l2 2H4zM10 21h4M2 8a10 10 0 0 1 3-5M22 8a10 10 0 0 0-3-5" />
+  </svg>
+);
+export const ArrowIcon = ({ size = 40, strokeWidth = 2.6 }: P) => (
+  <svg {...base(size, strokeWidth)}>
+    <path d="M4 12h15M13 5l7 7-7 7" />
+  </svg>
+);
+export const MapIcon = ({ size = 32, strokeWidth = 2 }: P) => (
+  <svg {...base(size, strokeWidth)}>
+    <path d="M12 21s-7-6.2-7-12a7 7 0 0 1 14 0c0 5.8-7 12-7 12z" />
+    <circle cx="12" cy="9" r="2.5" />
   </svg>
 );

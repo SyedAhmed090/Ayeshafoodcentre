@@ -7,6 +7,10 @@ export const en = {
   back: "Back",
   undo: "Undo",
   tapToStart: "Tap to start",
+  enterPin: "Counter PIN",
+  wrongPin: "Wrong PIN",
+  tryLater: "Wait 5 minutes",
+  deletePin: "Delete",
 
   // Counter board
   frontDesk: "Front desk · Orders",
@@ -36,6 +40,8 @@ export const en = {
   cancelOrder: "Cancel order",
   callCustomer: "Call customer",
   sameScreenshot: "Same screenshot used before",
+  tapToZoom: "Tap to zoom",
+  close: "Close",
 
   // Walk-in
   thisOrder: "This order",

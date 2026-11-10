@@ -1,6 +1,6 @@
 # Ayesha Food Centre — ordering system
 
-**Status (2026-11-10): Phase 1 (customer site) done, waiting for review.** Phase 0 approved. Next is Phase 2 (front desk), only after approval.
+**Status (2026-11-10): Phase 2 (front desk) done, waiting for review.** Phases 0–1 approved. Next is Phase 3 (rider app), only after approval.
 
 ## Run it locally
 
@@ -9,7 +9,7 @@
 2. `.env` is not in git: copy `.env.example` (local `DATABASE_URL="mysql://ayesha:ayesha-dev@127.0.0.1:3307/ayesha"`, absolute `UPLOAD_DIR`).
 3. `npm install && npx prisma migrate deploy && npm run db:seed`
 4. `npm run dev` (runs `server.mjs --dev`, NOT `next dev`, otherwise no Socket.IO) → http://localhost:3000
-5. Move an order by hand (until the counter exists): `curl -X POST localhost:3000/api/dev/status -H "content-type: application/json" -d '{"number":1,"status":"COOKING"}'`. Statuses: CHECK_PAYMENT, NEW, COOKING, READY, OUT_FOR_DELIVERY (assigns Rider 1), DELIVERED, CANCELLED. Add `"cash":true` to simulate "No money → switch to cash". Dev only (404 in production).
+5. Counter: http://localhost:3000/counter → PIN `1234` once, then "Tap to start". To move delivery orders past Ready by hand (until the rider app exists, Phase 3): `curl -X POST localhost:3000/api/dev/status -H "content-type: application/json" -d '{"number":1,"status":"COOKING"}'`. Statuses: CHECK_PAYMENT, NEW, COOKING, READY, OUT_FOR_DELIVERY (assigns Rider 1), DELIVERED, CANCELLED. Add `"cash":true` to simulate "No money → switch to cash". Dev only (404 in production).
 6. `npm test` runs the unit tests.
 
 Seed logins: counter PIN `1234`, riders 1/2/3 PINs `1111`/`2222`/`3333`.
@@ -28,6 +28,12 @@ Seed logins: counter PIN `1234`, riders 1/2/3 PINs `1111`/`2222`/`3333`.
 - `src/lib/uploads.ts`: screenshots hashed (SHA-256 of the file as uploaded), then resized with sharp and stored under `UPLOAD_DIR/screenshots/`.
 - API: `POST /api/orders` (multipart), `GET /api/orders/[token]`, dev-only `POST /api/dev/status`.
 - Animations must never make the server-rendered first view invisible (see `template.tsx`, `StepIcon`): only live changes animate.
+- Counter: `src/app/counter/` — `login/` (PIN pad), `(desk)/` (board `page.tsx`, `check/[id]`, `walkin/`; layout requires the counter device), `actions.ts` (every action checks the device). Views in `src/components/staff/`.
+- `CounterShell.tsx` (in the counter layout): live board data, chime until a new card is tapped, Tap to start (unlocks audio + wake lock), undo bar. Kept in the layout so they work on every counter screen.
+- `src/lib/staff-auth.ts`: a staff device logs in once (PIN) and keeps an httpOnly cookie for a year; only the token's hash is stored (`Device`).
+- `src/lib/order-rules.ts` `MOVES` + `undoTarget`: the state machine and undo, pure and unit tested. `orders.ts` `moveOrder`/`undoOrder` apply them with a conditional update (`WHERE status = from`), so double taps and two devices can't move an order twice.
+- Socket rooms: `order:<token>` (customer status page, gets the public order), `counter` (gets only `{id}`; the board reloads through `/api/counter/board`, which needs the counter cookie).
+- `server.mjs` routes WebSocket upgrades: `/socket.io/` to Socket.IO, everything else to Next. Without that, Socket.IO kills Next's dev hot-reload socket and pages never hydrate under `npm run dev`.
 
 ## What this is
 
@@ -129,3 +135,13 @@ Full menu + prices, food/deal photos, delivery area + fee, opening hours, JazzCa
 - Desktop proposal = same tokens, wider container: menu grid 3–4 columns, checkout in two columns, status page centred.
 - Shop closed: header says "Closed now", + buttons and Place order disabled, API refuses. Sold out: card greyed, "Sold out" instead of +.
 - Prisma migrate dev lowercased `menuitem` and `rider` in two migrations; fixed by hand (see DEPLOY.md gotchas).
+
+## Decisions made in Phase 2
+
+- Counter PIN screen has no design: 4 dots + 88px number pad in Look B tokens. 5 wrong tries per address, and 20 in total across all addresses (the forwarded address can be faked), lock it for 5 minutes. The limiter is in memory (`rate-limit.ts`, marked `shortcut:`).
+- "No money" screen has no design: the two big buttons become "Cash on delivery" (dark, bike icon) and "Cancel order" (red outline), and "Call customer" appears in the header.
+- New orders flash a red outline (not a fading card, which looked disabled) and the chime repeats every 2.5 s until the card is tapped. Which cards were tapped is remembered on the tablet (localStorage), so a reload doesn't re-ring old orders. Walk-ins made at the counter never ring.
+- Undo bar: one slot (the last action), bottom centre, "Undo #48" with a 10 s bar. The server allows 13 s for slow connections. Undoing a walk-in that was just created cancels it.
+- Cards slide between columns with Framer Motion layout animation. The brief says Framer is for the customer site only, but it also asks for this slide; this was the least code. Easy to drop if the owner prefers no motion.
+- Board order follows the design: newest first in each column.
+- "Pick rider" on Ready delivery cards links to `/counter/rider/[id]`, which is built in Phase 3 (404 until then).

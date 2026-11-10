@@ -50,3 +50,24 @@ body {
   background: var(--color-surface);
   color: var(--color-ink);
 }
+
+/* Undo countdown bar on staff screens. */
+@keyframes afc-shrink {
+  from {
+    transform: scaleX(1);
+  }
+  to {
+    transform: scaleX(0);
+  }
+}
+
+/* A new order on the counter: a solid card with a flashing red outline (fading the card would look disabled). */
+@keyframes afc-flash {
+  50% {
+    outline-color: transparent;
+  }
+}
+.afc-new {
+  outline: 4px solid var(--color-accent);
+  animation: afc-flash 1s steps(1, end) infinite;
+}

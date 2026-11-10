@@ -6,7 +6,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { changeQty, useCart } from "@/lib/cart";
 import { rs } from "@/lib/money";
 import type { CategoryView, MenuItemView } from "@/lib/menu";
-import { PhoneIcon, PlusIcon } from "./icons";
+import { PhoneIcon, PlusIcon } from "@/components/icons";
 
 type Props = { menu: CategoryView[]; shopOpen: boolean; shopPhone: string };
 

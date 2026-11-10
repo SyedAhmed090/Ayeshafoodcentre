@@ -40,3 +40,78 @@ export function validateOrderInput(input: PlaceOrderInput) {
   if (lines.length === 0) throw new OrderError("Your cart is empty.");
   return { name, phone, address, lines };
 }
+
+// ── Status moves (docs/BRIEF.md "Order states and who moves them") ──
+
+type Status =
+  | "CHECK_PAYMENT"
+  | "NEW"
+  | "COOKING"
+  | "READY"
+  | "OUT_FOR_DELIVERY"
+  | "DELIVERED"
+  | "COMPLETED"
+  | "CANCELLED";
+
+export type CounterAction = "moneyCame" | "switchToCash" | "cancel" | "startCooking" | "foodReady" | "given";
+
+/** Each counter button moves an order exactly one step, from exactly one status. */
+export const MOVES: Record<CounterAction, { from: Status; to: Status; walkinOnly?: boolean }> = {
+  moneyCame: { from: "CHECK_PAYMENT", to: "NEW" },
+  switchToCash: { from: "CHECK_PAYMENT", to: "NEW" },
+  cancel: { from: "CHECK_PAYMENT", to: "CANCELLED" },
+  startCooking: { from: "NEW", to: "COOKING" },
+  foodReady: { from: "COOKING", to: "READY" },
+  given: { from: "READY", to: "COMPLETED", walkinOnly: true },
+};
+
+export const UNDO_WINDOW_MS = 10_000;
+/** Extra time for a slow connection between the tap and the server. */
+const UNDO_GRACE_MS = 3_000;
+
+export type UndoFacts = {
+  status: Status;
+  type: "DELIVERY" | "WALKIN";
+  hasScreenshot: boolean;
+  createdAt: Date;
+  paymentCheckedAt: Date | null;
+  cookingAt: Date | null;
+  readyAt: Date | null;
+  outAt: Date | null;
+  deliveredAt: Date | null;
+  completedAt: Date | null;
+  cancelledAt: Date | null;
+};
+
+/**
+ * Where undo takes an order, or null if its last change can't be undone (or is too old).
+ * The previous status always follows from the current one, so no history table is needed.
+ */
+export function undoTarget(o: UndoFacts, now: Date): { to: Status; at: Date } | null {
+  const pick = (): { to: Status; at: Date | null } | null => {
+    switch (o.status) {
+      case "COOKING":
+        return { to: "NEW", at: o.cookingAt };
+      case "READY":
+        return { to: "COOKING", at: o.readyAt };
+      case "COMPLETED":
+        return { to: "READY", at: o.completedAt };
+      case "OUT_FOR_DELIVERY":
+        return { to: "READY", at: o.outAt };
+      case "DELIVERED":
+        return { to: "OUT_FOR_DELIVERY", at: o.deliveredAt };
+      case "CANCELLED":
+        return o.hasScreenshot ? { to: "CHECK_PAYMENT", at: o.cancelledAt } : null;
+      case "NEW":
+        // A walk-in just made by mistake is cancelled; a checked wallet order goes back to Check.
+        if (o.type === "WALKIN") return { to: "CANCELLED", at: o.createdAt };
+        return o.hasScreenshot ? { to: "CHECK_PAYMENT", at: o.paymentCheckedAt } : null;
+      default:
+        return null;
+    }
+  };
+  const t = pick();
+  if (!t || !t.at) return null;
+  if (now.getTime() - t.at.getTime() > UNDO_WINDOW_MS + UNDO_GRACE_MS) return null;
+  return { to: t.to, at: t.at };
+}

@@ -7,7 +7,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { changeQty, clearCart, loadDetails, saveDetails, useCart, useHydrated, type Details } from "@/lib/cart";
 import { rs } from "@/lib/money";
 import type { MenuItemView } from "@/lib/menu";
-import { BackIcon, MinusIcon, PlusIcon, UploadIcon } from "./icons";
+import { BackIcon, MinusIcon, PlusIcon, UploadIcon } from "@/components/icons";
 
 type Props = { items: MenuItemView[]; deliveryFee: number; merchantNumber: string; shopOpen: boolean };
 type Payment = "COD" | "WALLET";

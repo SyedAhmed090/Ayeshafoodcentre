@@ -6,7 +6,7 @@ import { io } from "socket.io-client";
 import { useHydrated } from "@/lib/cart";
 import { rs } from "@/lib/money";
 import type { PublicOrder } from "@/lib/orders";
-import { BikeIcon, CheckIcon, CrossIcon, FlameIcon, HomeIcon, PhoneCardIcon, PhoneIcon } from "./icons";
+import { BikeIcon, CheckIcon, CrossIcon, FlameIcon, HomeIcon, PhoneCardIcon, PhoneIcon } from "@/components/icons";
 
 type State = "done" | "now" | "todo" | "failed";
 type Step = { key: string; label: string; sub?: React.ReactNode; state: State; icon: React.ReactNode };

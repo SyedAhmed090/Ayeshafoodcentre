@@ -5,11 +5,19 @@ import { emit } from "@/lib/realtime";
 import { getSettings } from "@/lib/settings";
 import { dateOnly, karachiDate } from "@/lib/time";
 import { deleteUpload, saveScreenshot } from "@/lib/uploads";
-import { OrderError, validateOrderInput, type CartLine, type PlaceOrderInput } from "@/lib/order-rules";
+import {
+  MOVES,
+  OrderError,
+  undoTarget,
+  validateOrderInput,
+  type CartLine,
+  type CounterAction,
+  type PlaceOrderInput,
+} from "@/lib/order-rules";
 import type { OrderStatus, PaymentMethod } from "@/generated/prisma/enums";
+import type { Prisma } from "@/generated/prisma/client";
 
 export { OrderError, type CartLine };
-import type { Prisma } from "@/generated/prisma/client";
 
 /** Next number for a Karachi day. The upsert locks the day's row until the transaction ends, so two orders can't share a number. */
 async function nextOrderNumber(tx: Prisma.TransactionClient, day: Date): Promise<number> {
@@ -156,4 +164,183 @@ export async function applyStatus(orderId: number, status: OrderStatus, data: Pr
     data: { ...data, status, ...(stamp ? { [stamp]: new Date() } : {}) },
   });
   await announce(orderId);
+}
+
+// ── Counter ─────────────────────────────────────────────────────────
+
+export type BoardOrder = {
+  id: number;
+  number: number;
+  status: OrderStatus;
+  type: "DELIVERY" | "WALKIN";
+  paymentMethod: PaymentMethod;
+  total: number;
+  items: { qty: number; name: string }[];
+};
+
+/** Everything on the counter board: orders in Check, New, Cooking and Ready, newest first (as designed). */
+export async function getBoard(): Promise<BoardOrder[]> {
+  return db.order.findMany({
+    where: { status: { in: ["CHECK_PAYMENT", "NEW", "COOKING", "READY"] } },
+    orderBy: { id: "desc" },
+    select: {
+      id: true,
+      number: true,
+      status: true,
+      type: true,
+      paymentMethod: true,
+      total: true,
+      items: { select: { qty: true, name: true }, orderBy: { id: "asc" } },
+    },
+  });
+}
+
+/**
+ * One counter button press. The update only matches while the order is still in the
+ * expected status, so a double tap or a second device can't move it twice.
+ * Returns false if the order had already moved.
+ */
+export async function moveOrder(orderId: number, action: CounterAction, deviceId: number): Promise<boolean> {
+  const m = MOVES[action];
+  const now = new Date();
+  const data: Prisma.OrderUpdateManyMutationInput = { status: m.to };
+  if (m.to === "COOKING") data.cookingAt = now;
+  if (m.to === "READY") data.readyAt = now;
+  if (m.to === "COMPLETED") data.completedAt = now;
+  if (m.to === "CANCELLED") data.cancelledAt = now;
+  if (m.from === "CHECK_PAYMENT") data.paymentCheckedAt = now;
+  if (action === "switchToCash") data.paymentMethod = "COD";
+
+  const moved = await db.$transaction(async (tx) => {
+    const { count } = await tx.order.updateMany({
+      where: { id: orderId, status: m.from, ...(m.walkinOnly ? { type: "WALKIN" } : {}) },
+      data,
+    });
+    if (count === 0) return false;
+    if (m.from === "CHECK_PAYMENT") {
+      await tx.paymentScreenshot.update({
+        where: { orderId },
+        data: { result: action === "moneyCame" ? "RECEIVED" : "NOT_RECEIVED", checkedById: deviceId, checkedAt: now },
+      });
+    }
+    return true;
+  });
+  if (moved) await announce(orderId);
+  return moved;
+}
+
+/** Undo the order's last change if it is still within the undo window. Returns false if it can't be undone. */
+export async function undoOrder(orderId: number, expectedStatus: OrderStatus): Promise<boolean> {
+  const o = await db.order.findUnique({
+    where: { id: orderId },
+    select: {
+      status: true,
+      type: true,
+      riderId: true,
+      createdAt: true,
+      paymentCheckedAt: true,
+      cookingAt: true,
+      readyAt: true,
+      outAt: true,
+      deliveredAt: true,
+      completedAt: true,
+      cancelledAt: true,
+      screenshot: { select: { id: true } },
+    },
+  });
+  if (!o || o.status !== expectedStatus) return false;
+  const target = undoTarget({ ...o, hasScreenshot: o.screenshot !== null }, new Date());
+  if (!target) return false;
+
+  const data: Prisma.OrderUpdateManyMutationInput = { status: target.to };
+  if (o.status === "COOKING") data.cookingAt = null;
+  if (o.status === "READY") data.readyAt = null;
+  if (o.status === "COMPLETED") data.completedAt = null;
+  if (o.status === "DELIVERED") data.deliveredAt = null;
+  if (o.status === "OUT_FOR_DELIVERY") Object.assign(data, { outAt: null, riderId: null });
+  if (target.to === "CANCELLED") data.cancelledAt = new Date();
+  if (target.to === "CHECK_PAYMENT") Object.assign(data, { paymentCheckedAt: null, cancelledAt: null, paymentMethod: "WALLET" });
+
+  const undone = await db.$transaction(async (tx) => {
+    const { count } = await tx.order.updateMany({ where: { id: orderId, status: o.status }, data });
+    if (count === 0) return false;
+    if (target.to === "CHECK_PAYMENT") {
+      await tx.paymentScreenshot.update({ where: { orderId }, data: { result: null, checkedById: null, checkedAt: null } });
+    }
+    // The rider who was assigned is free again; one who had delivered is out again.
+    if (o.riderId && o.status === "OUT_FOR_DELIVERY") await tx.rider.update({ where: { id: o.riderId }, data: { status: "FREE" } });
+    if (o.riderId && o.status === "DELIVERED") await tx.rider.update({ where: { id: o.riderId }, data: { status: "OUT" } });
+    return true;
+  });
+  if (undone) await announce(orderId);
+  return undone;
+}
+
+/** A walk-in order: paid in cash at the counter, so it starts in New. */
+export async function createWalkin(lines: CartLine[]): Promise<{ id: number; number: number }> {
+  if (
+    lines.length === 0 ||
+    lines.length > 30 ||
+    new Set(lines.map((l) => l.id)).size !== lines.length ||
+    lines.some((l) => !Number.isInteger(l.id) || !Number.isInteger(l.qty) || l.qty < 1 || l.qty > 50)
+  ) {
+    throw new OrderError("Bad walk-in order");
+  }
+  const items = await db.menuItem.findMany({
+    where: { id: { in: lines.map((l) => l.id) }, active: true, soldOut: false },
+    select: { id: true, name: true, price: true },
+  });
+  if (items.length !== lines.length) throw new OrderError("An item is sold out");
+  const byId = new Map(items.map((i) => [i.id, i]));
+  const orderItems = lines.map((l) => {
+    const i = byId.get(l.id)!;
+    return { menuItemId: i.id, name: i.name, price: i.price, qty: l.qty };
+  });
+  const subtotal = orderItems.reduce((sum, i) => sum + i.price * i.qty, 0);
+  const day = dateOnly(karachiDate());
+  const order = await db.$transaction(async (tx) =>
+    tx.order.create({
+      data: {
+        day,
+        number: await nextOrderNumber(tx, day),
+        token: randomBytes(18).toString("base64url"),
+        type: "WALKIN",
+        paymentMethod: "COD",
+        status: "NEW",
+        subtotal,
+        deliveryFee: 0,
+        total: subtotal,
+        items: { create: orderItems },
+      },
+      select: { id: true, number: true },
+    }),
+  );
+  emit("counter", "order:changed", { id: order.id });
+  return order;
+}
+
+/** What the payment check screen needs, including whether the same screenshot was used on another order. */
+export async function getCheckDetails(orderId: number) {
+  const o = await db.order.findUnique({
+    where: { id: orderId },
+    select: {
+      id: true,
+      number: true,
+      status: true,
+      total: true,
+      customer: { select: { phone: true } },
+      screenshot: { select: { id: true, sha256: true } },
+    },
+  });
+  if (!o || !o.screenshot) return null;
+  const reused = await db.paymentScreenshot.count({ where: { sha256: o.screenshot.sha256, orderId: { not: o.id } } });
+  return {
+    id: o.id,
+    number: o.number,
+    status: o.status,
+    total: o.total,
+    customerPhone: o.customer?.phone ?? null,
+    screenshotId: o.screenshot.id,
+    reused: reused > 0,
+  };
 }
