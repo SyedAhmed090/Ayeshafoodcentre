@@ -1,7 +1,25 @@
 # Ayesha Food Centre — ordering system
 
-**Status (2026-11-10): not started.** No code yet; this repo holds the brief and the screen designs only.
-Next step is the "Before Phase 0" list below.
+**Status (2026-11-10): Phase 0 (foundations) done, waiting for review.** Next is Phase 1 (customer site), only after approval.
+
+## Run it locally
+
+1. Start the local database (portable MariaDB 11.4 shared with hukam, port 3307):
+   `~/.local/mariadb-11.4.5-winx64/bin/mariadbd.exe --defaults-file=~/.local/hukam-db/my.ini --console`
+2. `.env` is not in git: copy `.env.example` (local `DATABASE_URL="mysql://ayesha:ayesha-dev@127.0.0.1:3307/ayesha"`, absolute `UPLOAD_DIR`).
+3. `npm install && npx prisma migrate deploy && npm run db:seed`
+4. `npm run dev` (runs `server.mjs --dev`, NOT `next dev`, otherwise no Socket.IO) → http://localhost:3000/realtime-test
+
+Seed logins: counter PIN `1234`, riders 1/2/3 PINs `1111`/`2222`/`3333`.
+
+## Where things are
+
+- `server.mjs`: custom server, Next + Socket.IO on one port; sets `globalThis.io`.
+- `src/lib/realtime.ts`: `emit(room, event, data)` for route handlers and server actions.
+- `src/lib/i18n/en.ts`: every staff-facing word (add `ur.ts` with the same keys later).
+- `src/app/globals.css`: Look B tokens in Tailwind 4 `@theme` (the default palette is switched off, so only these colours exist).
+- `prisma/schema.prisma` + `prisma/seed.ts`; `DEPLOY.md` for Hostinger.
+- Planned, not built yet: `src/lib/orders.ts` (state machine + undo), `order-number.ts`, `uploads.ts`. They arrive with the phases that use them.
 
 ## What this is
 
@@ -80,8 +98,17 @@ Designs also use a few off-token greys (`#3F3F3F`, `#CFCDC6`, `#8A8780`, `#6B6B6
 
 Full menu + prices, food/deal photos, delivery area + fee, opening hours, JazzCash/Easypaisa merchant number, shop phone, riders (names, photos), logo, domain, Hostinger plan confirmation (Node.js + WebSockets).
 
-## Before Phase 0 (resume here)
+## Resume here
 
 1. `git fetch` and check you're up to date with `origin/main`.
 2. Re-read the live brief doc in case it changed since this copy.
-3. Propose the folder structure → wait for OK → start Phase 0.
+3. Phase 0 is waiting for review. Start Phase 1 only after the user approves.
+
+## Decisions made in Phase 0
+
+- Folder structure approved by the user 2026-11-10.
+- Next pinned to 16.4.6: 16.0–16.4.0 has critical advisories (GHSA-2464-fhr4-w9xw and others).
+- The server is `server.mjs` (plain JS) rather than `server.ts`, so Hostinger runs it with no compile step.
+- Undo needs no event table: each state's previous state follows from the state machine, plus `paymentMethod`/screenshot (a wallet order switched to cash = COD with a screenshot). The 10s window comes from the status timestamp.
+- "Paid" is derived (walk-in, or a wallet order past CHECK_PAYMENT), not stored.
+- Socket.IO falls back to long polling by itself if WebSockets are blocked, which covers the brief's SSE+polling fallback (see DEPLOY.md §4).

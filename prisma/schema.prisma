@@ -1,0 +1,195 @@
+// Ayesha Food Centre data model. See docs/BRIEF.md "Data model and order states".
+// Money is whole rupees (Int). Times are stored in UTC; the order day runs on Asia/Karachi.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+// ── Menu ────────────────────────────────────────────────────────────
+
+model Category {
+  id        Int        @id @default(autoincrement())
+  name      String
+  sortOrder Int        @default(0)
+  active    Boolean    @default(true)
+  items     MenuItem[]
+}
+
+model MenuItem {
+  id         Int         @id @default(autoincrement())
+  categoryId Int
+  category   Category    @relation(fields: [categoryId], references: [id])
+  name       String
+  price      Int
+  photo      String? // path under UPLOAD_DIR
+  soldOut    Boolean     @default(false)
+  active     Boolean     @default(true)
+  sortOrder  Int         @default(0)
+  orderItems OrderItem[]
+
+  @@index([categoryId])
+}
+
+// ── Orders ──────────────────────────────────────────────────────────
+
+model Customer {
+  id          Int     @id @default(autoincrement())
+  name        String
+  phone       String  @unique
+  lastAddress String?
+  orders      Order[]
+}
+
+enum OrderType {
+  DELIVERY
+  WALKIN
+}
+
+enum PaymentMethod {
+  COD
+  WALLET
+}
+
+// "placed" is never stored: a new order starts in CHECK_PAYMENT (wallet) or NEW (cash, walk-in).
+enum OrderStatus {
+  CHECK_PAYMENT
+  NEW
+  COOKING
+  READY
+  OUT_FOR_DELIVERY
+  DELIVERED
+  COMPLETED
+  CANCELLED
+}
+
+model Order {
+  id            Int           @id @default(autoincrement())
+  day           DateTime      @db.Date // Karachi calendar day; number restarts each day
+  number        Int
+  token         String        @unique // private status link, never the order number
+  type          OrderType
+  paymentMethod PaymentMethod // a wallet order switched to cash becomes COD and keeps its screenshot
+  status        OrderStatus
+  customerId    Int?
+  customer      Customer?     @relation(fields: [customerId], references: [id])
+  address       String?
+  subtotal      Int
+  deliveryFee   Int
+  total         Int
+  riderId       Int?
+  rider         Rider?        @relation(fields: [riderId], references: [id])
+
+  createdAt        DateTime  @default(now())
+  paymentCheckedAt DateTime?
+  cookingAt        DateTime?
+  readyAt          DateTime?
+  outAt            DateTime?
+  deliveredAt      DateTime?
+  completedAt      DateTime?
+  cancelledAt      DateTime?
+
+  items      OrderItem[]
+  screenshot PaymentScreenshot?
+
+  @@unique([day, number])
+  @@index([status])
+  @@index([riderId])
+  @@index([customerId])
+}
+
+model OrderItem {
+  id         Int       @id @default(autoincrement())
+  orderId    Int
+  order      Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  menuItemId Int?
+  menuItem   MenuItem? @relation(fields: [menuItemId], references: [id], onDelete: SetNull)
+  name       String // copied at order time
+  price      Int // copied at order time
+  qty        Int
+
+  @@index([orderId])
+  @@index([menuItemId])
+}
+
+// Race-safe daily order numbers: one row per Karachi day, incremented atomically.
+model DailyCounter {
+  day  DateTime @id @db.Date
+  last Int
+}
+
+enum PaymentResult {
+  RECEIVED
+  NOT_RECEIVED
+}
+
+model PaymentScreenshot {
+  id          Int            @id @default(autoincrement())
+  orderId     Int            @unique
+  order       Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  path        String // under UPLOAD_DIR
+  sha256      String         @db.Char(64) // same hash on another order = red warning
+  checkedById Int?
+  checkedBy   Device?        @relation(fields: [checkedById], references: [id], onDelete: SetNull)
+  checkedAt   DateTime?
+  result      PaymentResult?
+
+  @@index([sha256])
+  @@index([checkedById])
+}
+
+// ── Staff ───────────────────────────────────────────────────────────
+
+enum RiderStatus {
+  FREE
+  OUT
+}
+
+model Rider {
+  id      Int         @id @default(autoincrement())
+  name    String
+  photo   String?
+  pinHash String // bcrypt of the 4-digit PIN
+  active  Boolean     @default(true)
+  status  RiderStatus @default(FREE)
+  orders  Order[]
+  devices Device[]
+}
+
+enum DeviceRole {
+  COUNTER
+  RIDER
+}
+
+// A logged-in tablet or phone. The cookie holds a random token; only its hash is stored.
+model Device {
+  id          Int                 @id @default(autoincrement())
+  role        DeviceRole
+  riderId     Int?
+  rider       Rider?              @relation(fields: [riderId], references: [id], onDelete: Cascade)
+  tokenHash   String              @unique @db.Char(64)
+  // Web Push subscription for this device (rider alerts).
+  pushEndpoint String?            @db.Text
+  pushP256dh   String?
+  pushAuth     String?
+  createdAt   DateTime            @default(now())
+  lastSeenAt  DateTime            @default(now())
+  checks      PaymentScreenshot[]
+
+  @@index([riderId])
+}
+
+// Single row, id = 1.
+model Settings {
+  id                Int     @id @default(1)
+  shopOpen          Boolean @default(true)
+  deliveryFee       Int
+  merchantNumber    String
+  shopPhone         String
+  counterPinHash    String // bcrypt; the counter tablet logs in with this
+  ownerPasswordHash String? // set in Phase 4
+}

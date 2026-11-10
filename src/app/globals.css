@@ -1,0 +1,52 @@
+@import "tailwindcss";
+
+/* Look B "Clean Counter" tokens. See docs/BRIEF.md "Design system and screens". */
+@theme {
+  --color-*: initial;
+  --color-white: #ffffff;
+  --color-transparent: transparent;
+  --color-current: currentColor;
+
+  --color-ink: #171717;
+  --color-ground: #f1f0ec;
+  --color-surface: #ffffff;
+  --color-line: #e4e2dc;
+  --color-muted: #5e5e5e;
+  --color-accent: #c8281e;
+
+  --color-check: #2456d6;
+  --color-check-tint: #e5ecfc;
+  --color-check-ink: #1b3fa0;
+  --color-new-tint: #fbe6e3;
+  --color-new-ink: #8e1a12;
+  --color-cooking: #f2b01e;
+  --color-cooking-tint: #fff1cc;
+  --color-cooking-ink: #5f4400;
+  --color-cooking-on: #241800; /* text on the amber Food ready button */
+  --color-ready: #1f7a45;
+  --color-ready-tint: #e1f3e8;
+  --color-ready-ink: #17693a;
+
+  /* Off-list shades the screen designs use; kept so screens match exactly. */
+  --color-ink-2: #3f3f3f; /* labels, order item lines */
+  --color-ink-3: #4a4a4a; /* placeholder text, Out on delivery chip */
+  --color-faint: #6b6b6b; /* future steps on the status page */
+  --color-line-2: #cfcdc6; /* inputs, outline buttons */
+  --color-line-3: #8a8780; /* dashed upload boxes */
+  --color-accent-ink: #a81f16; /* red text on white */
+  --color-ink-soft: #cfcfcf; /* secondary text on dark cards */
+  --color-ink-raised: #2a2a2a; /* photo well on the dark deal card */
+  --color-busy: #e7e5e0; /* busy rider card */
+  --color-busy-line: #a8a59d;
+  --color-busy-well: #d6d3cc;
+
+  --font-sans: var(--font-inter), system-ui, sans-serif;
+  --font-display: var(--font-space-grotesk), system-ui, sans-serif;
+
+  --shadow-card: 0 6px 16px rgba(23, 23, 23, 0.05);
+}
+
+body {
+  background: var(--color-surface);
+  color: var(--color-ink);
+}
