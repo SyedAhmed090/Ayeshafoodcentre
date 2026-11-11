@@ -1,6 +1,7 @@
 import "server-only";
 import { randomBytes } from "node:crypto";
 import { db } from "@/lib/db";
+import { deferPush } from "@/lib/push";
 import { emit } from "@/lib/realtime";
 import { getSettings } from "@/lib/settings";
 import { dateOnly, karachiDate } from "@/lib/time";
@@ -18,6 +19,9 @@ import type { OrderStatus, PaymentMethod } from "@/generated/prisma/enums";
 import type { Prisma } from "@/generated/prisma/client";
 
 export { OrderError, type CartLine };
+
+/** Thrown inside a transaction to roll it back when an order or rider had already changed. */
+class RiderBusy extends Error {}
 
 /** Next number for a Karachi day. The upsert locks the day's row until the transaction ends, so two orders can't share a number. */
 async function nextOrderNumber(tx: Prisma.TransactionClient, day: Date): Promise<number> {
@@ -136,34 +140,13 @@ export async function getPublicOrder(token: string): Promise<PublicOrder | null>
   };
 }
 
-/** Tell the customer's status page and the counter that an order changed. */
-export async function announce(orderId: number) {
+/** Tell the customer's status page, the counter and (if given) a rider's phone that an order changed. */
+export async function announce(orderId: number, riderId: number | null = null) {
   const o = await db.order.findUnique({ where: { id: orderId }, select: { token: true } });
   if (!o) return;
   emit(`order:${o.token}`, "order", await getPublicOrder(o.token));
   emit("counter", "order:changed", { id: orderId });
-}
-
-const stampFor: Partial<Record<OrderStatus, keyof Prisma.OrderUpdateInput>> = {
-  COOKING: "cookingAt",
-  READY: "readyAt",
-  OUT_FOR_DELIVERY: "outAt",
-  DELIVERED: "deliveredAt",
-  COMPLETED: "completedAt",
-  CANCELLED: "cancelledAt",
-};
-
-/**
- * Set a status and its timestamp, then announce it. No transition rules yet:
- * Phase 2 puts the counter's validated moves (and undo) on top of this.
- */
-export async function applyStatus(orderId: number, status: OrderStatus, data: Prisma.OrderUpdateInput = {}) {
-  const stamp = stampFor[status];
-  await db.order.update({
-    where: { id: orderId },
-    data: { ...data, status, ...(stamp ? { [stamp]: new Date() } : {}) },
-  });
-  await announce(orderId);
+  if (riderId) emit(`rider:${riderId}`, "rider:changed", {});
 }
 
 // ── Counter ─────────────────────────────────────────────────────────
@@ -262,17 +245,24 @@ export async function undoOrder(orderId: number, expectedStatus: OrderStatus): P
   if (target.to === "CHECK_PAYMENT") Object.assign(data, { paymentCheckedAt: null, cancelledAt: null, paymentMethod: "WALLET" });
 
   const undone = await db.$transaction(async (tx) => {
+    // A rider already sent out again can't take back the delivery: they'd be on two orders.
+    if (o.riderId && o.status === "DELIVERED") {
+      const r = await tx.rider.updateMany({ where: { id: o.riderId, status: "FREE" }, data: { status: "OUT" } });
+      if (r.count === 0) return false;
+    }
     const { count } = await tx.order.updateMany({ where: { id: orderId, status: o.status }, data });
-    if (count === 0) return false;
+    if (count === 0) throw new RiderBusy(); // rolls back the rider change above
     if (target.to === "CHECK_PAYMENT") {
       await tx.paymentScreenshot.update({ where: { orderId }, data: { result: null, checkedById: null, checkedAt: null } });
     }
-    // The rider who was assigned is free again; one who had delivered is out again.
+    // The rider who was assigned is free again.
     if (o.riderId && o.status === "OUT_FOR_DELIVERY") await tx.rider.update({ where: { id: o.riderId }, data: { status: "FREE" } });
-    if (o.riderId && o.status === "DELIVERED") await tx.rider.update({ where: { id: o.riderId }, data: { status: "OUT" } });
     return true;
+  }).catch((e) => {
+    if (e instanceof RiderBusy) return false;
+    throw e;
   });
-  if (undone) await announce(orderId);
+  if (undone) await announce(orderId, o.riderId);
   return undone;
 }
 
@@ -342,5 +332,119 @@ export async function getCheckDetails(orderId: number) {
     customerPhone: o.customer?.phone ?? null,
     screenshotId: o.screenshot.id,
     reused: reused > 0,
+  };
+}
+
+// ── Riders ──────────────────────────────────────────────────────────
+
+/** What the rider takes from the customer: nothing if the wallet payment was confirmed. */
+const toCollect = (o: { paymentMethod: PaymentMethod; total: number }) => (o.paymentMethod === "COD" ? o.total : 0);
+
+/** The pick-a-rider screen: the Ready delivery order and every active rider. Null if the order isn't waiting for a rider. */
+export async function getPickDetails(orderId: number) {
+  const o = await db.order.findUnique({
+    where: { id: orderId },
+    select: {
+      id: true,
+      number: true,
+      status: true,
+      type: true,
+      paymentMethod: true,
+      total: true,
+      address: true,
+      customer: { select: { name: true } },
+      items: { select: { qty: true, name: true }, orderBy: { id: "asc" } },
+    },
+  });
+  if (!o || o.status !== "READY" || o.type !== "DELIVERY") return null;
+  const riders = await db.rider.findMany({
+    where: { active: true },
+    orderBy: { id: "asc" },
+    select: { id: true, name: true, status: true },
+  });
+  return {
+    order: { id: o.id, number: o.number, items: o.items, customerName: o.customer?.name ?? "", address: o.address ?? "", collect: toCollect(o) },
+    riders,
+  };
+}
+
+/**
+ * Counter taps a free rider: READY → OUT_FOR_DELIVERY and the rider goes OUT, together or not at all.
+ * Returns false if the order or the rider had already changed (double tap, another device).
+ */
+export async function assignRider(orderId: number, riderId: number): Promise<boolean> {
+  const assigned = await db
+    .$transaction(async (tx) => {
+      // The rider row first: being FREE is what keeps a rider to one order at a time.
+      const r = await tx.rider.updateMany({ where: { id: riderId, active: true, status: "FREE" }, data: { status: "OUT" } });
+      if (r.count === 0) throw new RiderBusy();
+      const o = await tx.order.updateMany({
+        where: { id: orderId, status: "READY", type: "DELIVERY" },
+        data: { status: "OUT_FOR_DELIVERY", riderId, outAt: new Date() },
+      });
+      if (o.count === 0) throw new RiderBusy();
+      return true;
+    })
+    .catch((e) => {
+      if (e instanceof RiderBusy) return false;
+      throw e;
+    });
+  if (assigned) {
+    await announce(orderId, riderId);
+    const o = await db.order.findUnique({ where: { id: orderId }, select: { number: true } });
+    if (o) deferPush(riderId, o.number);
+  }
+  return assigned;
+}
+
+/** The rider taps Delivered: OUT_FOR_DELIVERY → DELIVERED for their own order, and they are FREE again. */
+export async function markDelivered(orderId: number, riderId: number): Promise<boolean> {
+  const done = await db.$transaction(async (tx) => {
+    const { count } = await tx.order.updateMany({
+      where: { id: orderId, riderId, status: "OUT_FOR_DELIVERY" },
+      data: { status: "DELIVERED", deliveredAt: new Date() },
+    });
+    if (count === 0) return false;
+    await tx.rider.update({ where: { id: riderId }, data: { status: "FREE" } });
+    return true;
+  });
+  if (done) await announce(orderId, riderId);
+  return done;
+}
+
+export type RiderOrder = {
+  id: number;
+  number: number;
+  collect: number;
+  itemCount: number;
+  customerName: string;
+  phone: string | null;
+  address: string;
+};
+
+/** The one order this rider is out with, or null. Only the rider's own phone may load this. */
+export async function getRiderOrder(riderId: number): Promise<RiderOrder | null> {
+  const o = await db.order.findFirst({
+    where: { riderId, status: "OUT_FOR_DELIVERY" },
+    orderBy: { outAt: "desc" },
+    select: {
+      id: true,
+      number: true,
+      paymentMethod: true,
+      total: true,
+      address: true,
+      customer: { select: { name: true, phone: true } },
+      items: { select: { qty: true } },
+    },
+  });
+  if (!o) return null;
+  return {
+    id: o.id,
+    number: o.number,
+    collect: toCollect(o),
+    itemCount: o.items.reduce((n, i) => n + i.qty, 0),
+    customerName: o.customer?.name ?? "",
+    phone: o.customer?.phone ?? null,
+    address: o.address ?? "",
   };
 }

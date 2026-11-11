@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { getSettings } from "@/lib/settings";
 import { clearFails, isLocked, recordFail } from "@/lib/rate-limit";
 import { clientKey, counterDevice, signInDevice } from "@/lib/staff-auth";
-import { createWalkin, moveOrder, undoOrder, type CartLine } from "@/lib/orders";
+import { assignRider, createWalkin, moveOrder, undoOrder, type CartLine } from "@/lib/orders";
 import type { CounterAction } from "@/lib/order-rules";
 import type { OrderStatus } from "@/generated/prisma/enums";
 
@@ -47,4 +47,11 @@ export async function counterWalkin(lines: CartLine[]): Promise<{ id: number; nu
   if (!(await counterDevice())) throw new Error("Not the counter");
   if (!Array.isArray(lines)) throw new Error("Bad walk-in");
   return createWalkin(lines.map((l) => ({ id: Number(l?.id), qty: Number(l?.qty) })));
+}
+
+/** Tap a free rider on the pick-a-rider screen. `false` = the order or rider had already changed. */
+export async function counterPickRider(orderId: number, riderId: number): Promise<boolean> {
+  if (!(await counterDevice())) throw new Error("Not the counter");
+  if (!Number.isInteger(orderId) || !Number.isInteger(riderId)) throw new Error("Bad pick");
+  return assignRider(orderId, riderId);
 }

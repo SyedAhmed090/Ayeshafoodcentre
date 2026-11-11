@@ -29,6 +29,10 @@ io.on("connection", (socket) => {
   // The counter room only ever carries order ids ("something changed"); the board then
   // reloads through a logged-in request, so joining needs no login here.
   socket.on("join:counter", () => socket.join("counter"));
+  // Same for a rider's phone: only "something changed", the order itself loads through /api/rider/current.
+  socket.on("join:rider", (id) => {
+    if (Number.isInteger(id) && id > 0) socket.join(`rider:${id}`);
+  });
 });
 
 // Route handlers and server actions run in this same process and emit through this (src/lib/realtime.ts).

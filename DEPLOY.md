@@ -24,6 +24,7 @@ Environment variables (see `.env.example`):
 - `UPLOAD_DIR` = an **absolute** folder outside `public_html`, e.g. `/home/<user>/ayesha-uploads`. Hostinger starts the server from a different working folder, so relative paths break.
 - `PORT` is set by Hostinger; leave it unset there.
 - `SEED_COUNTER_PIN` = the counter tablet's 4-digit PIN for the first seed.
+- `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` = rider push keys, made once with `npx web-push generate-vapid-keys` (a new pair makes every rider phone tap Start again to re-subscribe). `VAPID_SUBJECT` = `mailto:` the shop's email. Without them riders only get alerts while the app is open. Push needs HTTPS, so test it on the real domain, not by IP.
 
 ## 3. First deploy
 

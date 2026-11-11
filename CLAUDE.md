@@ -1,32 +1,29 @@
 # Ayesha Food Centre — ordering system
 
-**Status (2026-11-10): Phase 2 (front desk) done, waiting for review.** Phases 0–1 approved. Next is Phase 3 (rider app), only after approval.
+**Status (2026-11-11): Phase 3 (rider app) done, waiting for review.** Phases 0–2 approved (2026-11-11, including every Phase 1–2 open point). Next is Phase 4 (owner admin), only after approval.
 
 ## Resume here
 
-1. `git fetch` and check you're up to date with `origin/main` (last commit: `phase-2: front desk dashboard`).
+1. `git fetch` and check you're up to date with `origin/main` (last commit: `phase-3: rider app`).
 2. Re-read the live brief doc in case it changed since `docs/BRIEF.md` was copied.
-3. Phase 2 is waiting for the user's review. Start Phase 3 only after they approve, and first ask about the open review points below.
+3. Phase 3 is waiting for the user's review. Start Phase 4 only after they approve, and first ask about the open points below.
 4. Start the database and `npm run dev` (see "Run it locally"). After stopping a background dev server, also kill the leftover `node server.mjs` process, or the next start fails with "port in use".
 
 ### Open points for the user to approve (raised, not yet answered)
 
-- Phase 1: the three schema additions (`MenuItem.description`, `MenuItem.featured`, `Rider.phone`), the status-page wording I wrote, the deal card being tappable as a whole.
-- Phase 2: the PIN login, "No money" choice screen and Undo bar (no designs existed); Framer Motion card sliding on the counter (brief lists Framer as customer-only); undoing a fresh walk-in marks it Cancelled.
-- Not yet tried on real devices: the chime and wake lock on the counter tablet; the checkout screen visually on a phone.
-- Earlier: who sets the counter PIN (assumed: owner, in Phase 4 settings); placeholder prices for Chicken Roll / Fries / Drink (300 / 200 / 100).
-- Hukam (separate project) is still on Next 16.4.0, which has critical advisories; offered to upgrade it.
+- Phase 3 screens with no design: rider login (grid of rider photos → the same PIN pad as the counter, with the rider's photo and name), the rider's "Free" waiting screen (own photo, name, green Free chip), and the Undo bar after Delivered (same as the counter's).
+- A wallet order that was paid shows "Paid" instead of an amount under "Take from customer" / "Rider collects".
+- Rider photos are the first letter of the name in the design's grey circle until Phase 4 adds photo upload.
+- The Map button searches Google Maps for the address + ", Karachi".
+- Rider PIN limits: 5 wrong tries per phone, 10 per rider, 30 in total, then 5 minutes locked.
+- Not yet tried on real devices: Web Push with the app in the background (needs HTTPS: test on the real domain), vibration, wake lock, installing to the home screen; the counter chime too.
+- Hukam (separate project) is still on Next 16.4.0, which has critical advisories; offered to upgrade it (no answer yet).
 
-### Phase 3 (rider app): what to build next
+### Phase 4 (owner admin): what to build next
 
-From the brief, plus what Phases 0–2 already prepared:
-- `/counter/rider/[id]` "Pick a rider" (design `CounterRider`): every active rider's photo with Free / Out on delivery; tapping a free rider = READY → OUT_FOR_DELIVERY, sets `riderId`, rider `OUT`. Add a `pickRider` move next to `MOVES` in `order-rules.ts` (its undo is already in `undoTarget`/`undoOrder`: clears the rider and frees them). Show the undo bar like other counter actions.
-- `/rider`: login by tapping your photo + 4-digit PIN (`Rider.pinHash`; reuse `signInDevice("RIDER", riderId)` and the `rate-limit.ts` pattern from `counterLogin`). Then: full-screen red alert (design `RiderAlert`) with sound + vibration → Go → delivery screen (design `RiderDelivery`): Call (`tel:` customer), Map (Google Maps search URL with the address), Delivered (OUT → DELIVERED, rider `FREE`; undo already handled). One order at a time.
-- Rider socket room: emit only `{id}` like the counter room, and load data through a rider-authenticated route.
-- Web Push so the phone rings with the app in the background: `Device.pushEndpoint/pushP256dh/pushAuth` already exist. Copy hukam's `web-push` setup (`~/hukam/src/lib/push.ts`, `src/app/sw.js/route.ts` (service worker served by a route), `src/app/manifest.ts`, VAPID env vars). PWA manifest + service worker for installing on rider phones.
-- "Tap to start" + wake lock on the rider phone too (reuse `chime.ts`; consider moving the start overlay out of `CounterShell` into a shared component).
-- Remove `/api/dev/status` once riders can deliver.
-- The new words go in `src/lib/i18n/en.ts` (rider keys already exist).
+From the brief: edit categories, items, prices, photos, sold-out flags; edit riders and PINs; settings (open/closed, delivery fee, merchant number, counter PIN); daily report (orders, sales, cash vs wallet, cash each rider hands over = sum of `total` of their DELIVERED COD orders that day). No design: normal admin UI in Look B tokens.
+- Owner login: `Settings.ownerPasswordHash` exists, unset.
+- Photos: menu items and riders. Store under `UPLOAD_DIR` with sharp (like `uploads.ts`) and serve through a route; then swap the letter in `RiderPhoto.tsx` (marked `shortcut:`) and the "Food photo" boxes for real images.
 
 ## Run it locally
 
@@ -35,7 +32,7 @@ From the brief, plus what Phases 0–2 already prepared:
 2. `.env` is not in git: copy `.env.example` (local `DATABASE_URL="mysql://ayesha:ayesha-dev@127.0.0.1:3307/ayesha"`, absolute `UPLOAD_DIR`).
 3. `npm install && npx prisma migrate deploy && npm run db:seed`
 4. `npm run dev` (runs `server.mjs --dev`, NOT `next dev`, otherwise no Socket.IO) → http://localhost:3000
-5. Counter: http://localhost:3000/counter → PIN `1234` once, then "Tap to start". To move delivery orders past Ready by hand (until the rider app exists, Phase 3): `curl -X POST localhost:3000/api/dev/status -H "content-type: application/json" -d '{"number":1,"status":"COOKING"}'`. Statuses: CHECK_PAYMENT, NEW, COOKING, READY, OUT_FOR_DELIVERY (assigns Rider 1), DELIVERED, CANCELLED. Add `"cash":true` to simulate "No money → switch to cash". Dev only (404 in production).
+5. Counter: http://localhost:3000/counter → PIN `1234` once, then "Tap to start". Rider: http://localhost:3000/rider in another browser profile (each profile is one device) → tap a rider, PIN, "Tap to start". Web Push only works with VAPID keys in `.env` (see `.env.example`); without them the open app still rings.
 6. `npm test` runs the unit tests.
 
 Seed logins: counter PIN `1234`, riders 1/2/3 PINs `1111`/`2222`/`3333`.
@@ -49,17 +46,21 @@ Seed logins: counter PIN `1234`, riders 1/2/3 PINs `1111`/`2222`/`3333`.
 - `prisma/schema.prisma` + `prisma/seed.ts`; `DEPLOY.md` for Hostinger.
 - Customer site: `src/app/(customer)/` (menu `/`, `/checkout`, `/order/[token]`), views in `src/components/customer/`. `Motion.tsx` sets reduced motion to follow the phone's setting.
 - `src/lib/cart.ts`: cart + remembered name/phone/address in this device's localStorage; `useHydrated()` for storage-dependent screens.
-- `src/lib/orders.ts`: `placeOrder` (prices from DB, race-safe daily number, customer upsert by phone), `getPublicOrder` (what the status page may see), `announce` (socket push to `order:<token>` and `counter`), `applyStatus` (status + timestamp with no rules; used only by the dev route), plus the counter functions below.
+- `src/lib/orders.ts`: `placeOrder` (prices from DB, race-safe daily number, customer upsert by phone), `getPublicOrder` (what the status page may see), `announce` (socket push to `order:<token>`, `counter`, and `rider:<id>` when given), plus the counter and rider functions below.
 - `src/lib/order-rules.ts`: pure input checks, the move table and undo rules (unit tested in `src/lib/__tests__`).
 - `src/lib/uploads.ts`: screenshots hashed (SHA-256 of the file as uploaded), then resized with sharp and stored under `UPLOAD_DIR/screenshots/`.
-- API: `POST /api/orders` (multipart), `GET /api/orders/[token]`, `GET /api/counter/board`, `GET /api/counter/screenshot/[id]` (counter only), dev-only `POST /api/dev/status`, Phase 0 `/realtime-test` (keep until the Hostinger WebSocket check is done).
+- API: `POST /api/orders` (multipart), `GET /api/orders/[token]`, `GET /api/counter/board`, `GET /api/counter/screenshot/[id]` (counter only), `GET /api/rider/current` (rider phone only), Phase 0 `/realtime-test` (keep until the Hostinger WebSocket check is done).
 - Shared icons: `src/components/icons.tsx`.
 - Animations must never make the server-rendered first view invisible (see `template.tsx`, `StepIcon`): only live changes animate.
 - Counter: `src/app/counter/` — `login/` (PIN pad), `(desk)/` (board `page.tsx`, `check/[id]`, `walkin/`; layout requires the counter device), `actions.ts` (every action checks the device). Views in `src/components/staff/`.
-- `CounterShell.tsx` (in the counter layout): live board data, chime until a new card is tapped, Tap to start (unlocks audio + wake lock), undo bar. Kept in the layout so they work on every counter screen.
+- `CounterShell.tsx` (in the counter layout): live board data, chime until a new card is tapped, Tap to start, undo bar. Kept in the layout so they work on every counter screen.
+- Shared staff pieces in `src/components/staff/`: `TapToStart` (unlocks audio + wake lock), `UndoBar`, `PinPad`, `RiderPhoto`.
+- Counter pick-a-rider: `counter/(desk)/rider/[id]` + `PickRiderView`. `orders.ts` `assignRider` (rider FREE→OUT and order READY→OUT_FOR_DELIVERY in one transaction, both conditional, so a rider can't get two orders) and `markDelivered`. Undo of a pick is the existing `undoOrder`; undo of Delivered refuses if the rider was already sent out again.
+- Rider app: `src/app/rider/` (`login/`, `page.tsx`, `actions.ts`), view `RiderApp.tsx` (free → red alert ringing + vibrating until Go → delivery screen → Delivered). Which order this phone tapped Go on is in localStorage.
+- Web Push: `src/lib/push.ts` (VAPID from env, sent after the response, dead subscriptions cleared), subscription stored on `Device`, saved on Tap to start. Service worker served by `src/app/sw.js/route.ts` (scope `/rider`, notifications only, no caching); install manifest `src/app/rider.webmanifest/route.ts`; icons in `public/icons/`.
 - `src/lib/staff-auth.ts`: a staff device logs in once (PIN) and keeps an httpOnly cookie for a year; only the token's hash is stored (`Device`).
 - `src/lib/order-rules.ts` `MOVES` + `undoTarget`: the state machine and undo, pure and unit tested. `orders.ts` `moveOrder`/`undoOrder` apply them with a conditional update (`WHERE status = from`), so double taps and two devices can't move an order twice.
-- Socket rooms: `order:<token>` (customer status page, gets the public order), `counter` (gets only `{id}`; the board reloads through `/api/counter/board`, which needs the counter cookie).
+- Socket rooms: `order:<token>` (customer status page, gets the public order), `counter` (gets only `{id}`; the board reloads through `/api/counter/board`, which needs the counter cookie), `rider:<id>` (gets nothing but "changed"; the phone reloads through `/api/rider/current`).
 - `server.mjs` routes WebSocket upgrades: `/socket.io/` to Socket.IO, everything else to Next. Without that, Socket.IO kills Next's dev hot-reload socket and pages never hydrate under `npm run dev`.
 
 ## What this is
@@ -165,4 +166,12 @@ Full menu + prices, food/deal photos, delivery area + fee, opening hours, JazzCa
 - Undo bar: one slot (the last action), bottom centre, "Undo #48" with a 10 s bar. The server allows 13 s for slow connections. Undoing a walk-in that was just created cancels it.
 - Cards slide between columns with Framer Motion layout animation. The brief says Framer is for the customer site only, but it also asks for this slide; this was the least code. Easy to drop if the owner prefers no motion.
 - Board order follows the design: newest first in each column.
-- "Pick rider" on Ready delivery cards links to `/counter/rider/[id]`, which is built in Phase 3 (404 until then).
+- "Pick rider" on Ready delivery cards links to `/counter/rider/[id]` (built in Phase 3).
+
+## Decisions made in Phase 3
+
+- Rider assignment isn't in `MOVES`: it needs a rider and a second row (`assignRider` in `orders.ts`). One order at a time is enforced by the rider row's FREE status inside the same transaction.
+- The rider phone rings (chime every 2.5 s + vibration) until Go. Push notifications use `requireInteraction` and vibration, with urgency high and a 10-minute TTL.
+- Push subscription allowlist: only Chrome/Firefox/Safari/Edge push hosts are accepted, since the server POSTs to that URL.
+- Only the rider app is installable (manifest linked from the rider layout). The counter tablet can get the same later if wanted.
+- `/api/dev/status` and `applyStatus` were removed: riders can deliver now.

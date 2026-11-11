@@ -47,3 +47,16 @@ export async function clientKey(prefix: string): Promise<string> {
   const h = await headers();
   return `${prefix}:${h.get("x-forwarded-for")?.split(",")[0]?.trim() || h.get("x-real-ip") || "local"}`;
 }
+
+/** For rider pages: sends a phone that isn't logged in as a rider to the photo + PIN screen. */
+export async function requireRiderPage() {
+  const d = await getDevice();
+  if (d?.role !== "RIDER" || !d.riderId) redirect("/rider/login");
+  return { id: d.id, riderId: d.riderId };
+}
+
+/** For rider actions and API routes: null if this request isn't from a logged-in rider phone. */
+export async function riderDevice() {
+  const d = await getDevice();
+  return d?.role === "RIDER" && d.riderId ? { id: d.id, riderId: d.riderId } : null;
+}
