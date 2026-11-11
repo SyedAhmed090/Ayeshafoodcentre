@@ -1,12 +1,12 @@
 # Ayesha Food Centre — ordering system
 
-**Status (2026-11-11): Phase 5 (shop testing + launch) started.** Phases 0–4 done; the user moved on to Phase 5 without answering the Phase 3–4 points below (treat as accepted unless they say otherwise). Code-side launch prep is done (nightly backups, DEPLOY.md launch checklist). The rest is blocked on the user: Hostinger access + domain, and the shop's real menu, photos, riders and merchant number.
+**Status (2026-11-11): Phase 5 (shop testing + launch) in progress.** Phases 0–4 done. Everything that can be done before the server exists is done: nightly backups, DEPLOY.md launch checklist, a 51-check whole-system test (all passing), and the site side of the rider APK (Trusted Web Activity). Blocked on the user: Hostinger access + domain, and the shop's real menu, photos, riders and merchant number. The Phase 3–4 review points below were never answered; treat them as accepted unless the user says otherwise.
 
 ## Resume here
 
-1. `git fetch` and check you're up to date with `origin/main` (last commit: `phase-5: nightly backups and launch checklist`).
+1. `git fetch` and check you're up to date with `origin/main` (last commit: `docs: update status after rider APK prep`).
 2. Re-read the live brief doc in case it changed since `docs/BRIEF.md` was copied.
-3. Phase 5 = DEPLOY.md "Launch checklist". Ask the user for what's still missing (Hostinger access, domain, shop data) before doing anything on the server. Deploying is outward-facing: confirm each step with the user.
+3. Ask the user for what's still missing (Hostinger access, domain, shop data) and for a decision on the open finding about old orders staying on the board. Then work through DEPLOY.md "Launch checklist", confirming each step on the live server with the user first (deploying is outward-facing). Build the rider APK after the domain is live (DEPLOY.md §8).
 4. Start the database and `npm run dev` (see "Run it locally"). Stopping a background `npm run dev` leaves `node server.mjs --dev` running (it holds `.next/dev/lock`, whose `pid` is the process to kill), or the next start fails with "Another next dev server is already running".
 
 ### Rider APK (decided 2026-11-11: Option 1, Trusted Web Activity)
