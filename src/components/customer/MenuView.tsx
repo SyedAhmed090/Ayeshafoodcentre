@@ -7,6 +7,7 @@ import { changeQty, useCart } from "@/lib/cart";
 import { rs } from "@/lib/money";
 import type { CategoryView, MenuItemView } from "@/lib/menu";
 import { PhoneIcon, PlusIcon } from "@/components/icons";
+import { Photo } from "@/components/Photo";
 
 type Props = { menu: CategoryView[]; shopOpen: boolean; shopPhone: string };
 
@@ -121,9 +122,9 @@ function DealCard({ item, canAdd }: { item: MenuItemView; canAdd: boolean }) {
         {item.description && <span className="text-[13px] text-ink-soft">{item.description}</span>}
         <span className="font-display text-xl font-bold">{rs(item.price)}</span>
       </span>
-      <span className="flex size-[116px] shrink-0 items-center justify-center rounded-full bg-ink-raised text-xs text-ink-soft">
+      <Photo photo={item.photo} className="size-[116px] shrink-0 rounded-full bg-ink-raised text-xs text-ink-soft">
         Deal photo
-      </span>
+      </Photo>
     </motion.button>
   );
 }
@@ -131,7 +132,9 @@ function DealCard({ item, canAdd }: { item: MenuItemView; canAdd: boolean }) {
 function ItemCard({ item, canAdd }: { item: MenuItemView; canAdd: boolean }) {
   return (
     <div className={`flex flex-col gap-2 rounded-[18px] border border-line p-2.5 ${item.soldOut ? "opacity-50" : ""}`}>
-      <div className="flex h-[110px] items-center justify-center rounded-xl bg-ground text-xs text-muted">Food photo</div>
+      <Photo photo={item.photo} className="h-[110px] w-full rounded-xl bg-ground text-xs text-muted">
+        Food photo
+      </Photo>
       <div className="text-[15px] font-semibold">{item.name}</div>
       <div className="flex items-center justify-between">
         <div className="font-display text-[17px] font-bold">{rs(item.price)}</div>

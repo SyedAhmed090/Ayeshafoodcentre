@@ -7,6 +7,6 @@ import { RiderLoginView } from "@/components/staff/RiderLoginView";
 export default async function RiderLogin() {
   const d = await getDevice();
   if (d?.role === "RIDER" && d.riderId) redirect("/rider");
-  const riders = await db.rider.findMany({ where: { active: true }, orderBy: { id: "asc" }, select: { id: true, name: true } });
+  const riders = await db.rider.findMany({ where: { active: true }, orderBy: { id: "asc" }, select: { id: true, name: true, photo: true } });
   return <RiderLoginView riders={riders} />;
 }

@@ -33,11 +33,13 @@ function loadGo(): number | null {
 export function RiderApp({
   riderId,
   name,
+  photo,
   initial,
   pushKey,
 }: {
   riderId: number;
   name: string;
+  photo: string | null;
   initial: RiderOrder | null;
   pushKey: string | null;
 }) {
@@ -143,7 +145,7 @@ export function RiderApp({
   return (
     <>
       {!order ? (
-        <Free name={name} />
+        <Free name={name} photo={photo} />
       ) : alerting ? (
         <Alert order={order} onGo={() => go(order.id)} />
       ) : (
@@ -165,10 +167,10 @@ export function RiderApp({
 }
 
 /** Waiting for an order. Not in the designs: the rider's own photo and name with the Free chip from the counter. */
-function Free({ name }: { name: string }) {
+function Free({ name, photo }: { name: string; photo: string | null }) {
   return (
     <main className="flex min-h-dvh flex-col items-center justify-center gap-6 p-6">
-      <RiderPhoto name={name} size={160} onGround />
+      <RiderPhoto name={name} photo={photo} size={160} onGround />
       <h1 className="font-display text-[34px] leading-none font-bold tracking-[-0.5px]">{name}</h1>
       <span className="flex h-[60px] items-center gap-2 rounded-2xl bg-ready px-6 text-[22px] font-semibold text-white">
         <CheckIcon size={24} />

@@ -74,7 +74,7 @@ export function PickRiderView({ order, riders }: Props) {
                 onClick={() => pick(r.id)}
                 className="flex flex-col items-center justify-center gap-[18px] rounded-[22px] border border-line bg-surface p-4 shadow-card"
               >
-                <RiderPhoto name={r.name} size={180} />
+                <RiderPhoto name={r.name} photo={r.photo} size={180} />
                 <span className="font-display text-[30px] leading-none font-bold tracking-[-0.5px]">{r.name}</span>
                 <span className="flex h-[52px] items-center gap-2 rounded-[14px] bg-ready px-[22px] text-xl font-semibold text-white">
                   <CheckIcon size={22} />
@@ -86,7 +86,7 @@ export function PickRiderView({ order, riders }: Props) {
                 key={r.id}
                 className="flex flex-col items-center justify-center gap-[18px] rounded-[22px] border border-dashed border-busy-line bg-busy p-4 text-ink-3"
               >
-                <RiderPhoto name={r.name} size={180} busy />
+                <RiderPhoto name={r.name} photo={r.photo} size={180} busy />
                 <span className="font-display text-[30px] leading-none font-bold tracking-[-0.5px]">{r.name}</span>
                 <span className="flex h-[52px] items-center gap-2 rounded-[14px] bg-ink-3 px-[22px] text-xl font-semibold whitespace-nowrap text-white">
                   <BikeIcon size={24} />

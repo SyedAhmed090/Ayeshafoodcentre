@@ -1,29 +1,29 @@
 # Ayesha Food Centre — ordering system
 
-**Status (2026-11-11): Phase 3 (rider app) done, waiting for review.** Phases 0–2 approved (2026-11-11, including every Phase 1–2 open point). Next is Phase 4 (owner admin), only after approval.
+**Status (2026-11-11): Phase 4 (owner admin) done, waiting for review.** Phases 0–3 approved; the user asked to leave device testing for later. Next is Phase 5 (shop testing + launch), only after approval.
 
 ## Resume here
 
-1. `git fetch` and check you're up to date with `origin/main` (last commit: `phase-3: rider app`).
+1. `git fetch` and check you're up to date with `origin/main` (last commit: `phase-4: owner admin`).
 2. Re-read the live brief doc in case it changed since `docs/BRIEF.md` was copied.
-3. Phase 3 is waiting for the user's review. Start Phase 4 only after they approve, and first ask about the open points below.
-4. Start the database and `npm run dev` (see "Run it locally"). After stopping a background dev server, also kill the leftover `node server.mjs` process, or the next start fails with "port in use".
+3. Phase 4 is waiting for the user's review. Start Phase 5 only after they approve, and first ask about the open points below.
+4. Start the database and `npm run dev` (see "Run it locally"). Stopping a background `npm run dev` leaves `node server.mjs --dev` running (it holds `.next/dev/lock`, whose `pid` is the process to kill), or the next start fails with "Another next dev server is already running".
 
 ### Open points for the user to approve (raised, not yet answered)
 
-- Phase 3 screens with no design: rider login (grid of rider photos → the same PIN pad as the counter, with the rider's photo and name), the rider's "Free" waiting screen (own photo, name, green Free chip), and the Undo bar after Delivered (same as the counter's).
-- A wallet order that was paid shows "Paid" instead of an amount under "Take from customer" / "Rider collects".
-- Rider photos are the first letter of the name in the design's grey circle until Phase 4 adds photo upload.
-- The Map button searches Google Maps for the address + ", Karachi".
-- Rider PIN limits: 5 wrong tries per phone, 10 per rider, 30 in total, then 5 minutes locked.
-- Not yet tried on real devices: Web Push with the app in the background (needs HTTPS: test on the real domain), vibration, wake lock, installing to the home screen; the counter chime too.
+- Phase 4 has no design: normal admin UI in Look B tokens (top tabs Report · Wallet · Menu · Riders · Settings). Review the layout on the owner's phone.
+- Report: "Orders" = everything not cancelled; Sales/Cash/Wallet count only finished orders (delivered or handed over), unfinished ones are listed as "not finished yet". Cash to hand over = counter (walk-ins) + each rider's delivered cash orders, adding up to Total cash.
+- Owner login lasts 30 days per device; changing the password logs out the owner's other devices. The first password comes from `SEED_OWNER_PASSWORD` via the seed.
+- Changing a rider's PIN, or unticking "Working here", logs that rider's phone out. Changing the counter PIN does not log the tablet out.
+- Nothing is ever deleted from the menu or riders: they are hidden ("Shown" / "Working here"), so old orders and reports keep their names.
+- Picking an item as "Today's deal" unpicks the previous one (the menu shows one deal card).
+- Not tried on real devices yet (user: "testing later"): rider push in the background, vibration, wake lock, PWA install, counter chime; admin on the owner's phone.
+- Phase 3 points (no answer yet, assumed fine when the user moved on): rider login / Free screen / rider Undo bar had no design; paid wallet orders show "Paid" instead of an amount; Map searches address + ", Karachi"; rider PIN limits 5 per phone / 10 per rider / 30 total.
 - Hukam (separate project) is still on Next 16.4.0, which has critical advisories; offered to upgrade it (no answer yet).
 
-### Phase 4 (owner admin): what to build next
+### Phase 5 (shop testing + launch): what's next
 
-From the brief: edit categories, items, prices, photos, sold-out flags; edit riders and PINs; settings (open/closed, delivery fee, merchant number, counter PIN); daily report (orders, sales, cash vs wallet, cash each rider hands over = sum of `total` of their DELIVERED COD orders that day). No design: normal admin UI in Look B tokens.
-- Owner login: `Settings.ownerPasswordHash` exists, unset.
-- Photos: menu items and riders. Store under `UPLOAD_DIR` with sharp (like `uploads.ts`) and serve through a route; then swap the letter in `RiderPhoto.tsx` (marked `shortcut:`) and the "Food photo" boxes for real images.
+From the brief: load the real menu, photos, riders and merchant number (through the admin); test with the real counter person and riders on the real devices and fix anything they hesitate over; deploy to Hostinger with the domain, HTTPS and daily database backups (DEPLOY.md). Then do the Hostinger WebSocket check and remove `/realtime-test`.
 
 ## Run it locally
 
@@ -35,7 +35,7 @@ From the brief: edit categories, items, prices, photos, sold-out flags; edit rid
 5. Counter: http://localhost:3000/counter → PIN `1234` once, then "Tap to start". Rider: http://localhost:3000/rider in another browser profile (each profile is one device) → tap a rider, PIN, "Tap to start". Web Push only works with VAPID keys in `.env` (see `.env.example`); without them the open app still rings.
 6. `npm test` runs the unit tests.
 
-Seed logins: counter PIN `1234`, riders 1/2/3 PINs `1111`/`2222`/`3333`.
+Seed logins: counter PIN `1234`, riders 1/2/3 PINs `1111`/`2222`/`3333`, owner `/admin` password = `SEED_OWNER_PASSWORD` in `.env` (local: `owner-dev-123`).
 
 ## Where things are
 
@@ -49,8 +49,11 @@ Seed logins: counter PIN `1234`, riders 1/2/3 PINs `1111`/`2222`/`3333`.
 - `src/lib/orders.ts`: `placeOrder` (prices from DB, race-safe daily number, customer upsert by phone), `getPublicOrder` (what the status page may see), `announce` (socket push to `order:<token>`, `counter`, and `rider:<id>` when given), plus the counter and rider functions below.
 - `src/lib/order-rules.ts`: pure input checks, the move table and undo rules (unit tested in `src/lib/__tests__`).
 - `src/lib/uploads.ts`: screenshots hashed (SHA-256 of the file as uploaded), then resized with sharp and stored under `UPLOAD_DIR/screenshots/`.
-- API: `POST /api/orders` (multipart), `GET /api/orders/[token]`, `GET /api/counter/board`, `GET /api/counter/screenshot/[id]` (counter only), `GET /api/rider/current` (rider phone only), Phase 0 `/realtime-test` (keep until the Hostinger WebSocket check is done).
-- Shared icons: `src/components/icons.tsx`.
+- API: `POST /api/orders` (multipart), `GET /api/orders/[token]`, `GET /api/counter/board`, `GET /api/counter/screenshot/[id]` (counter and owner), `GET /api/rider/current` (rider phone only), Phase 0 `/realtime-test` (keep until the Hostinger WebSocket check is done).
+- Shared icons: `src/components/icons.tsx`. `src/components/Photo.tsx`: a stored photo or the design's grey placeholder box.
+- Owner admin: `src/app/admin/` — `login/`, `(panel)/` (report `page.tsx`, `wallet/`, `menu/` + `menu/[id]`, `riders/` + `riders/[id]`, `settings/`; layout requires the owner), `actions.ts` (every action goes through `owner()`, which checks the login, turns `AdminError`/`UploadError` into a form message, and revalidates `/admin` so forms refill with saved values). Form pieces in `src/components/admin/` (`ActionForm` = useActionState wrapper, `ui.tsx`).
+- `src/lib/report.ts`: the daily report from a day's orders (pure, unit tested). `src/lib/admin-rules.ts`: admin form reading/checks (pure, unit tested).
+- Photos: `uploads.ts` `savePhoto` (square, sharp, `UPLOAD_DIR/menu|riders/<random>.jpg`), served by `src/app/media/[kind]/[file]/route.ts` (public, immutable cache; only our random names). `src/lib/media.ts` `mediaUrl()`. Replaced or removed photos are deleted from disk.
 - Animations must never make the server-rendered first view invisible (see `template.tsx`, `StepIcon`): only live changes animate.
 - Counter: `src/app/counter/` — `login/` (PIN pad), `(desk)/` (board `page.tsx`, `check/[id]`, `walkin/`; layout requires the counter device), `actions.ts` (every action checks the device). Views in `src/components/staff/`.
 - `CounterShell.tsx` (in the counter layout): live board data, chime until a new card is tapped, Tap to start, undo bar. Kept in the layout so they work on every counter screen.
@@ -72,7 +75,7 @@ Online ordering + delivery for a single-branch fast food shop in North Karachi. 
 | Customer site | `/`, `/checkout`, `/order/[token]` | Phone 390px (desktop later) | Polished, Framer Motion |
 | Front desk | `/counter`, `/counter/check/[id]`, `/counter/walkin`, `/counter/rider/[id]` | Tablet 1180×820 landscape | Huge buttons, no reading |
 | Rider app | `/rider` (alert state + active order) | Rider's Android phone 390px | One order at a time |
-| Owner admin | (Phase 4, no design) | Phone/laptop | Normal admin UI |
+| Owner admin | `/admin` (report, wallet, menu, riders, settings) | Phone/laptop | Normal admin UI |
 
 Staff and riders **can't read well**: colour + icon + 1–2 words per state, no typing, one tap = one step, sound for new things, 10s undo on every status change.
 
@@ -175,3 +178,11 @@ Full menu + prices, food/deal photos, delivery area + fee, opening hours, JazzCa
 - Push subscription allowlist: only Chrome/Firefox/Safari/Edge push hosts are accepted, since the server POSTs to that URL.
 - Only the rider app is installable (manifest linked from the rider layout). The counter tablet can get the same later if wanted.
 - `/api/dev/status` and `applyStatus` were removed: riders can deliver now.
+
+## Decisions made in Phase 4
+
+- Owner login reuses the device cookie (`Device` with role `OWNER`, new enum value + migration `owner_role`; the migration's table name was lowercased by Windows MariaDB and fixed by hand). Expires after 30 days on the server side too. Same rate limits as the counter PIN.
+- Server actions accept 9 MB (`next.config.ts`) so phone photos can be uploaded; `uploads.ts` caps a photo at 8 MB.
+- Report days are Karachi days (`Order.day`), picked with ‹ › arrows or a date box (plain GET links, no JS needed).
+- Wallet page: every order with a screenshot that day, its check result and time, "Switched to cash"/"Cancelled", and a red note when the same screenshot file was used on any other order.
+- Quick "Mark sold out" button in the menu list, because sold-out is the change made most during the day.

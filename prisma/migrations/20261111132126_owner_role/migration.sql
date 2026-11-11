@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE `Device` MODIFY `role` ENUM('COUNTER', 'RIDER', 'OWNER') NOT NULL;

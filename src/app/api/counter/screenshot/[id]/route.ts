@@ -1,10 +1,11 @@
 import { db } from "@/lib/db";
-import { counterDevice } from "@/lib/staff-auth";
+import { getDevice } from "@/lib/staff-auth";
 import { readUpload } from "@/lib/uploads";
 
-// Payment screenshots hold customers' wallet details: only the counter (and later the owner) may see them.
+// Payment screenshots hold customers' wallet details: only the counter and the owner may see them.
 export async function GET(_req: Request, ctx: RouteContext<"/api/counter/screenshot/[id]">) {
-  if (!(await counterDevice())) return new Response(null, { status: 401 });
+  const role = (await getDevice())?.role;
+  if (role !== "COUNTER" && role !== "OWNER") return new Response(null, { status: 401 });
   const id = Number((await ctx.params).id);
   const shot = Number.isInteger(id) ? await db.paymentScreenshot.findUnique({ where: { id }, select: { path: true } }) : null;
   if (!shot) return new Response(null, { status: 404 });

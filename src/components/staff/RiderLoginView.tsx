@@ -7,7 +7,7 @@ import { BackIcon } from "@/components/icons";
 import { PinPad } from "@/components/staff/PinPad";
 import { RiderPhoto } from "@/components/staff/RiderPhoto";
 
-type Rider = { id: number; name: string };
+type Rider = { id: number; name: string; photo: string | null };
 
 /** Tap your photo, then your 4-digit PIN. No typing. */
 export function RiderLoginView({ riders }: { riders: Rider[] }) {
@@ -23,7 +23,7 @@ export function RiderLoginView({ riders }: { riders: Rider[] }) {
             onClick={() => setRider(r)}
             className="flex flex-col items-center gap-3 rounded-[22px] border border-line bg-surface p-4 shadow-card"
           >
-            <RiderPhoto name={r.name} size={120} />
+            <RiderPhoto name={r.name} photo={r.photo} size={120} />
             <span className="font-display text-2xl font-bold tracking-[-0.5px]">{r.name}</span>
           </button>
         ))}
@@ -45,7 +45,7 @@ export function RiderLoginView({ riders }: { riders: Rider[] }) {
         submit={(pin) => riderLogin(rider.id, pin)}
         heading={
           <div className="flex flex-col items-center gap-3">
-            <RiderPhoto name={rider.name} size={120} onGround />
+            <RiderPhoto name={rider.name} photo={rider.photo} size={120} onGround />
             <h1 className="font-display text-[28px] font-bold tracking-[-0.5px]">{rider.name}</h1>
           </div>
         }

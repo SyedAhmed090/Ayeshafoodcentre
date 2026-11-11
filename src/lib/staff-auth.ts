@@ -11,6 +11,9 @@ const MAX_AGE = 60 * 60 * 24 * 365;
 
 const hash = (token: string) => createHash("sha256").update(token).digest("hex");
 
+// The owner can change prices and PINs, so their login lasts 30 days, not a year.
+const OWNER_MAX_AGE = 60 * 60 * 24 * 30;
+
 export async function signInDevice(role: DeviceRole, riderId: number | null = null) {
   const token = randomBytes(32).toString("base64url");
   await db.device.create({ data: { role, riderId, tokenHash: hash(token) } });
@@ -19,14 +22,25 @@ export async function signInDevice(role: DeviceRole, riderId: number | null = nu
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
     path: "/",
-    maxAge: MAX_AGE,
+    maxAge: role === "OWNER" ? OWNER_MAX_AGE : MAX_AGE,
   });
+}
+
+/** Log this device out: forget its token on the server and drop the cookie. */
+export async function signOutDevice() {
+  const jar = await cookies();
+  const token = jar.get(COOKIE)?.value;
+  if (token) await db.device.deleteMany({ where: { tokenHash: hash(token) } });
+  jar.delete(COOKIE);
 }
 
 export async function getDevice() {
   const token = (await cookies()).get(COOKIE)?.value;
   if (!token) return null;
-  return db.device.findUnique({ where: { tokenHash: hash(token) }, select: { id: true, role: true, riderId: true } });
+  const d = await db.device.findUnique({ where: { tokenHash: hash(token) }, select: { id: true, role: true, riderId: true, createdAt: true } });
+  // The cookie expiring is the browser's side; this is the server's, so a copied owner cookie dies too.
+  if (d?.role === "OWNER" && Date.now() - d.createdAt.getTime() > OWNER_MAX_AGE * 1000) return null;
+  return d;
 }
 
 /** For counter pages: sends a device that isn't logged in as the counter to the PIN screen. */
@@ -59,4 +73,17 @@ export async function requireRiderPage() {
 export async function riderDevice() {
   const d = await getDevice();
   return d?.role === "RIDER" && d.riderId ? { id: d.id, riderId: d.riderId } : null;
+}
+
+/** For admin pages: sends anyone but the owner to the password screen. */
+export async function requireOwnerPage() {
+  const d = await getDevice();
+  if (d?.role !== "OWNER") redirect("/admin/login");
+  return d;
+}
+
+/** For admin actions and routes: null if this request isn't from the owner. */
+export async function ownerDevice() {
+  const d = await getDevice();
+  return d?.role === "OWNER" ? d : null;
 }

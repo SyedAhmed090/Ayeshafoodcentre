@@ -50,6 +50,28 @@ export async function saveScreenshot(data: Buffer): Promise<{ path: string; sha2
   return { path: rel, sha256 };
 }
 
+/** Menu and rider photos: square, small enough for phones, under UPLOAD_DIR/<kind>/. Returns the stored path. */
+export async function savePhoto(data: Buffer, kind: PhotoKind): Promise<string> {
+  if (data.length > MAX_UPLOAD_BYTES) throw new UploadError("That photo is too big (8 MB at most).");
+  if (!sniffImage(data)) throw new UploadError("The photo must be a JPG, PNG or WebP image.");
+  const size = kind === "menu" ? 800 : 400;
+  const out = await sharp(data)
+    .rotate()
+    .resize({ width: size, height: size, fit: "cover", withoutEnlargement: true })
+    .jpeg({ quality: 82 })
+    .toBuffer()
+    .catch(() => {
+      throw new UploadError("That photo could not be read. Try another one.");
+    });
+  const rel = `${kind}/${randomBytes(12).toString("hex")}.jpg`;
+  const abs = path.join(uploadDir(), rel);
+  await mkdir(path.dirname(abs), { recursive: true });
+  await writeFile(abs, out, { flag: "wx" });
+  return rel;
+}
+
+export type PhotoKind = "menu" | "riders";
+
 export async function deleteUpload(rel: string) {
   await unlink(resolveUpload(rel)).catch(() => {});
 }

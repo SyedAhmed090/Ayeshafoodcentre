@@ -166,9 +166,10 @@ model Rider {
 enum DeviceRole {
   COUNTER
   RIDER
+  OWNER // the owner's phone or laptop, logged in with the password
 }
 
-// A logged-in tablet or phone. The cookie holds a random token; only its hash is stored.
+// A logged-in tablet, phone or laptop. The cookie holds a random token; only its hash is stored.
 model Device {
   id           Int                 @id @default(autoincrement())
   role         DeviceRole

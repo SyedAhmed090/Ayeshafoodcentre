@@ -360,7 +360,7 @@ export async function getPickDetails(orderId: number) {
   const riders = await db.rider.findMany({
     where: { active: true },
     orderBy: { id: "asc" },
-    select: { id: true, name: true, status: true },
+    select: { id: true, name: true, photo: true, status: true },
   });
   return {
     order: { id: o.id, number: o.number, items: o.items, customerName: o.customer?.name ?? "", address: o.address ?? "", collect: toCollect(o) },

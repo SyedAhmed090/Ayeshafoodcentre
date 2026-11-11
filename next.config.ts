@@ -16,6 +16,8 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  // Admin photo uploads go through server actions; the default 1 MB is smaller than a phone photo (uploads.ts allows 8 MB).
+  experimental: { serverActions: { bodySizeLimit: "9mb" } },
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   },

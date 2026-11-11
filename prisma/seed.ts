@@ -76,6 +76,13 @@ async function main() {
       counterPinHash: await bcrypt.hash(pin, 10),
     },
   });
+  // Only fills an empty password, so re-running the seed never undoes the owner's own change.
+  const owner = process.env.SEED_OWNER_PASSWORD;
+  if (owner) {
+    if (owner.length < 8) throw new Error("SEED_OWNER_PASSWORD must be at least 8 characters");
+    const set = await db.settings.updateMany({ where: { id: 1, ownerPasswordHash: null }, data: { ownerPasswordHash: await bcrypt.hash(owner, 10) } });
+    if (set.count) console.log("Owner password set");
+  }
   console.log("Settings ready");
 }
 
