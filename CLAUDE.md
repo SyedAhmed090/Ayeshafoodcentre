@@ -1,12 +1,12 @@
 # Ayesha Food Centre — ordering system
 
-**Status (2026-11-11): Phase 4 (owner admin) done, waiting for review.** Phases 0–3 approved; the user asked to leave device testing for later. Next is Phase 5 (shop testing + launch), only after approval.
+**Status (2026-11-11): Phase 5 (shop testing + launch) started.** Phases 0–4 done; the user moved on to Phase 5 without answering the Phase 3–4 points below (treat as accepted unless they say otherwise). Code-side launch prep is done (nightly backups, DEPLOY.md launch checklist). The rest is blocked on the user: Hostinger access + domain, and the shop's real menu, photos, riders and merchant number.
 
 ## Resume here
 
-1. `git fetch` and check you're up to date with `origin/main` (last commit: `phase-4: owner admin`).
+1. `git fetch` and check you're up to date with `origin/main` (last commit: `phase-5: nightly backups and launch checklist`).
 2. Re-read the live brief doc in case it changed since `docs/BRIEF.md` was copied.
-3. Phase 4 is waiting for the user's review. Start Phase 5 only after they approve, and first ask about the open points below.
+3. Phase 5 = DEPLOY.md "Launch checklist". Ask the user for what's still missing (Hostinger access, domain, shop data) before doing anything on the server. Deploying is outward-facing: confirm each step with the user.
 4. Start the database and `npm run dev` (see "Run it locally"). Stopping a background `npm run dev` leaves `node server.mjs --dev` running (it holds `.next/dev/lock`, whose `pid` is the process to kill), or the next start fails with "Another next dev server is already running".
 
 ### Open points for the user to approve (raised, not yet answered)
@@ -52,6 +52,7 @@ Seed logins: counter PIN `1234`, riders 1/2/3 PINs `1111`/`2222`/`3333`, owner `
 - API: `POST /api/orders` (multipart), `GET /api/orders/[token]`, `GET /api/counter/board`, `GET /api/counter/screenshot/[id]` (counter and owner), `GET /api/rider/current` (rider phone only), Phase 0 `/realtime-test` (keep until the Hostinger WebSocket check is done).
 - Shared icons: `src/components/icons.tsx`. `src/components/Photo.tsx`: a stored photo or the design's grey placeholder box.
 - Owner admin: `src/app/admin/` — `login/`, `(panel)/` (report `page.tsx`, `wallet/`, `menu/` + `menu/[id]`, `riders/` + `riders/[id]`, `settings/`; layout requires the owner), `actions.ts` (every action goes through `owner()`, which checks the login, turns `AdminError`/`UploadError` into a form message, and revalidates `/admin` so forms refill with saved values). Form pieces in `src/components/admin/` (`ActionForm` = useActionState wrapper, `ui.tsx`).
+- Nightly backup: `src/lib/backup.ts` (data-only SQL dump, gzipped, last 14 kept in `BACKUP_DIR`) + pure `backup-sql.ts` (tested), called by `GET /api/cron/backup` with `CRON_SECRET` (`src/lib/cron.ts`). Ported from hukam. Restore verified locally by table checksums.
 - `src/lib/report.ts`: the daily report from a day's orders (pure, unit tested). `src/lib/admin-rules.ts`: admin form reading/checks (pure, unit tested).
 - Photos: `uploads.ts` `savePhoto` (square, sharp, `UPLOAD_DIR/menu|riders/<random>.jpg`), served by `src/app/media/[kind]/[file]/route.ts` (public, immutable cache; only our random names). `src/lib/media.ts` `mediaUrl()`. Replaced or removed photos are deleted from disk.
 - Animations must never make the server-rendered first view invisible (see `template.tsx`, `StepIcon`): only live changes animate.

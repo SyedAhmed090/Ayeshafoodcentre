@@ -26,6 +26,8 @@ Environment variables (see `.env.example`):
 - `SEED_COUNTER_PIN` = the counter tablet's 4-digit PIN for the first seed.
 - `SEED_OWNER_PASSWORD` = the owner's first `/admin` password (8+ characters). The seed only sets it while none is set; the owner then changes it in admin Settings, and you remove it from the environment.
 - `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` = rider push keys, made once with `npx web-push generate-vapid-keys` (a new pair makes every rider phone tap Start again to re-subscribe). `VAPID_SUBJECT` = `mailto:` the shop's email. Without them riders only get alerts while the app is open. Push needs HTTPS, so test it on the real domain, not by IP.
+- `BACKUP_DIR` = an **absolute** folder outside `public_html` for the nightly backups, e.g. `/home/<user>/ayesha-backups`.
+- `CRON_SECRET` = a random string, 16+ characters (`node -e "console.log(require('crypto').randomBytes(24).toString('base64url'))"`). The cron job below sends it.
 
 ## 3. First deploy
 
@@ -45,13 +47,49 @@ Open `https://<domain>/realtime-test`, tap **Send ping from server**.
 
 Delete `src/app/realtime-test` and `src/app/api/realtime-test` once the Phase 2 board uses live updates.
 
+## 5. Nightly backups
+
+hPanel → Advanced → Cron Jobs, daily at 03:00:
+```
+curl -fsS -H "Authorization: Bearer <CRON_SECRET>" https://<domain>/api/cron/backup > /dev/null
+```
+If the panel won't take a header, use `https://<domain>/api/cron/backup?key=<CRON_SECRET>`.
+
+Check it once by opening that `?key=` URL in a browser: it answers `{"ok":true,"file":"ayesha-….sql.gz",…}` and the file appears in `BACKUP_DIR`. The last 14 are kept. Also download one now and then (File Manager) or keep Hostinger's own backups on: a copy on the same server doesn't help if the server is lost.
+
+Photos and payment screenshots are files in `UPLOAD_DIR`, not in the database backup. Copy that folder separately if the server itself is lost.
+
+## 6. Restoring a backup
+
+Backups are data-only SQL (`ayesha-YYYY-MM-DD-HH-MM.sql.gz`), including device logins, so the tablet and rider phones stay logged in after a restore.
+
+1. Create an **empty** database (or empty the current one), and point `DATABASE_URL` at it.
+2. `npx prisma migrate deploy`. This creates the tables at the current schema.
+3. `gunzip -c ayesha-….sql.gz | mysql -h HOST -u USER -p DATABASE`
+4. Restart the app.
+
+Tested locally on 2026-11-11: every table's checksum in the restored database matched the original.
+
+## 7. Updates after launch
+
+1. Push to `main`. Hostinger rebuilds (or press Deploy in hPanel).
+2. If the update added files in `prisma/migrations/`, run `npx prisma migrate deploy` over SSH, then restart the app.
+
+## Launch checklist (Phase 5)
+
+1. Domain pointed at the plan, SSL on (push alerts and installing the rider app need HTTPS).
+2. Database, Node app, environment variables (§1–2), first deploy and seed (§3).
+3. WebSocket check (§4), then delete `src/app/realtime-test` and `src/app/api/realtime-test`.
+4. Cron backup (§5) and one manual check that a file appears.
+5. Owner logs in to `/admin`, changes the password, then remove `SEED_OWNER_PASSWORD` from the environment.
+6. In `/admin`: the real menu, prices and photos (hide or rename the placeholder items), riders with photos, phones and PINs (hide the three seed riders), merchant number, shop phone, delivery fee, counter PIN.
+7. Counter tablet: open `/counter`, PIN, Tap to start. Check the chime is loud enough and the screen stays on.
+8. Each rider's Android phone, in Chrome: open `/rider`, log in, Tap to start, allow notifications, then "Add to Home screen". Send a test order and check it rings with the app closed and the screen locked. Turn off battery optimisation for Chrome if it doesn't.
+9. A full test day with real orders (cash, wallet with a real screenshot, walk-in); compare the admin report with the till and the merchant app.
+
 ## Gotchas already known from other projects on this host
 
 - **Fonts are self-hosted** (`src/app/fonts/`). `next/font/google` fetches at build time and fails on Hostinger.
 - **`/public` is served by the web server directly**, bypassing `next.config` headers. Keep uploads out of `/public`; serve them through a route from `UPLOAD_DIR`.
 - **Migration table-name case:** the local Windows MariaDB lowercases table names in migrations that `prisma migrate dev` generates for `ALTER TABLE`. Hostinger's Linux MySQL is case-sensitive. After every `migrate dev`, check `migration.sql` uses model case (`Order`, `MenuItem`) and fix it before deploying.
 - Shared hosting caps MySQL connections, so the Prisma pool is kept at 5 (`src/lib/db.ts`).
-
-## Backups (Phase 5)
-
-Daily database backups are part of Phase 5 (launch).
