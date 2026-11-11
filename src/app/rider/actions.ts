@@ -25,7 +25,8 @@ export async function riderLogin(riderId: number, pin: string): Promise<{ error:
     recordFail(key, PER_CLIENT_MAX);
     recordFail(riderKey, PER_RIDER_MAX);
     recordFail(ALL, ALL_MAX);
-    return { error: "wrong" };
+    // The try that used up the last chance says so at once, not on the next one.
+    return { error: isLocked(key, PER_CLIENT_MAX) || isLocked(riderKey, PER_RIDER_MAX) || isLocked(ALL, ALL_MAX) ? "locked" : "wrong" };
   }
   clearFails(key);
   clearFails(riderKey);

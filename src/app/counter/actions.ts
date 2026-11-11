@@ -22,7 +22,8 @@ export async function counterLogin(pin: string): Promise<{ error: "wrong" | "loc
   if (!ok) {
     recordFail(key, PER_CLIENT_MAX);
     recordFail(ALL, ALL_MAX);
-    return { error: "wrong" };
+    // The try that used up the last chance says so at once, not on the next one.
+    return { error: isLocked(key, PER_CLIENT_MAX) || isLocked(ALL, ALL_MAX) ? "locked" : "wrong" };
   }
   clearFails(key);
   await signInDevice("COUNTER");

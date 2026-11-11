@@ -26,6 +26,7 @@ export async function ownerLogin(_prev: FormResult, fd: FormData): Promise<FormR
   if (typeof password !== "string" || password.length > 200 || !(await bcrypt.compare(password, hash))) {
     recordFail(key, PER_CLIENT_MAX);
     recordFail(ALL, ALL_MAX);
+    if (isLocked(key, PER_CLIENT_MAX) || isLocked(ALL, ALL_MAX)) return { error: "Too many wrong tries. Wait 5 minutes." };
     return { error: "Wrong password." };
   }
   clearFails(key);

@@ -9,6 +9,12 @@
 3. Phase 5 = DEPLOY.md "Launch checklist". Ask the user for what's still missing (Hostinger access, domain, shop data) before doing anything on the server. Deploying is outward-facing: confirm each step with the user.
 4. Start the database and `npm run dev` (see "Run it locally"). Stopping a background `npm run dev` leaves `node server.mjs --dev` running (it holds `.next/dev/lock`, whose `pid` is the process to kill), or the next start fails with "Another next dev server is already running".
 
+### Whole-system test (2026-11-11, production build on localhost, headless Chrome)
+
+51 checks over 4 simulated devices (customer phone, counter tablet, rider phone, owner laptop): logins, cash / wallet / no-money / cancel / undo / switch-to-cash flows, live status page and board updates, rider pick + one-order-at-a-time, rider alert by socket and by **real Web Push through FCM with the rider app closed**, Call/Map links, walk-in, report numbers vs orders placed, wallet page, shop closed (UI + API), sold out, lockouts, auth on private routes. All passed after fixing: missing site icon (favicon 404) and the lockout message now shows on the 5th wrong try. The script lives only in the session scratchpad (not in the repo).
+Still needs real devices: chime volume, wake lock, vibration (Chrome only allows it after a real finger tap), push on Android with the screen locked / battery saver, PWA install.
+**Open finding for the user:** unfinished orders from earlier days stay on the counter board forever (yesterday's #1/#2 test orders are still there), and daily numbers restart, so numbers can repeat on the board. Needs a decision (e.g. owner can cancel a stuck order in admin, or old cards get a "yesterday" mark).
+
 ### Open points for the user to approve (raised, not yet answered)
 
 - Phase 4 has no design: normal admin UI in Look B tokens (top tabs Report · Wallet · Menu · Riders · Settings). Review the layout on the owner's phone.
