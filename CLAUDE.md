@@ -9,6 +9,10 @@
 3. Phase 5 = DEPLOY.md "Launch checklist". Ask the user for what's still missing (Hostinger access, domain, shop data) before doing anything on the server. Deploying is outward-facing: confirm each step with the user.
 4. Start the database and `npm run dev` (see "Run it locally"). Stopping a background `npm run dev` leaves `node server.mjs --dev` running (it holds `.next/dev/lock`, whose `pid` is the process to kill), or the next start fails with "Another next dev server is already running".
 
+### Rider APK (decided 2026-11-11: Option 1, Trusted Web Activity)
+
+User chose a TWA APK (thin Android shell around `/rider`, same web app and Web Push) over a native Capacitor app with call-style ringing; revisit native only if riders miss alerts in shop testing. The site side is done: `/.well-known/assetlinks.json` (`src/app/.well-known/assetlinks.json/route.ts`, from env `RIDER_APP_PACKAGE` / `RIDER_APP_SHA256`) and the rider manifest (`id`, separate maskable icon). The APK itself is built at launch with PWABuilder (no JDK/Android SDK on this PC), steps in DEPLOY.md §8. Needs the live HTTPS domain. Brief says "PWA, not Play Store apps": a sideloaded APK still fits, but the user should confirm with the shop owner.
+
 ### Whole-system test (2026-11-11, production build on localhost, headless Chrome)
 
 51 checks over 4 simulated devices (customer phone, counter tablet, rider phone, owner laptop): logins, cash / wallet / no-money / cancel / undo / switch-to-cash flows, live status page and board updates, rider pick + one-order-at-a-time, rider alert by socket and by **real Web Push through FCM with the rider app closed**, Call/Map links, walk-in, report numbers vs orders placed, wallet page, shop closed (UI + API), sold out, lockouts, auth on private routes. All passed after fixing: missing site icon (favicon 404) and the lockout message now shows on the 5th wrong try. The script lives only in the session scratchpad (not in the repo).
