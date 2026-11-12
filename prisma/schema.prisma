@@ -44,6 +44,7 @@ model Customer {
   name        String
   phone       String  @unique
   lastAddress String?
+  blocked     Boolean @default(false) // the owner blocked this number (fake orders): it can't order online
   orders      Order[]
 }
 
@@ -79,7 +80,9 @@ model Order {
   status        OrderStatus
   customerId    Int?
   customer      Customer?     @relation(fields: [customerId], references: [id])
+  customerName  String? // copied at order time: the Customer row's name changes with the next order from that phone
   address       String?
+  clientKey     String?       @unique @db.Char(36) // the checkout's random key, so a retry after a lost answer returns the same order
   subtotal      Int
   deliveryFee   Int
   total         Int
@@ -196,4 +199,11 @@ model Settings {
   shopPhone         String
   counterPinHash    String // bcrypt; the counter tablet logs in with this
   ownerPasswordHash String? // set in Phase 4
+  // Opening hours in minutes after midnight, Karachi time; close < open means it closes after midnight.
+  // Both null = no schedule, only the shopOpen switch.
+  openMinute        Int?
+  closeMinute       Int?
+  minOrder          Int     @default(0) // food total (before delivery) a delivery order needs; 0 = none
+  deliveryArea      String? // shown at checkout, e.g. "North Karachi, Sectors 5–11"
+  staffLang         String  @default("en") @db.VarChar(2) // "en" or "ur": counter and rider screens
 }

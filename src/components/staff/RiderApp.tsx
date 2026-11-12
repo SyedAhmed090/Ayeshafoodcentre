@@ -5,7 +5,8 @@ import { useCallback, useEffect, useState } from "react";
 import { io } from "socket.io-client";
 import { riderDelivered, riderSavePush, riderUndo } from "@/app/rider/actions";
 import { playChime } from "@/lib/chime";
-import { en as t, fmt } from "@/lib/i18n/en";
+import { fmt } from "@/lib/i18n";
+import { useT } from "@/components/staff/StaffText";
 import { rs } from "@/lib/money";
 import { UNDO_WINDOW_MS } from "@/lib/order-rules";
 import type { RiderOrder } from "@/lib/orders";
@@ -168,6 +169,7 @@ export function RiderApp({
 
 /** Waiting for an order. Not in the designs: the rider's own photo and name with the Free chip from the counter. */
 function Free({ name, photo }: { name: string; photo: string | null }) {
+  const t = useT();
   return (
     <main className="flex min-h-dvh flex-col items-center justify-center gap-6 p-6">
       <RiderPhoto name={name} photo={photo} size={160} onGround />
@@ -181,6 +183,7 @@ function Free({ name, photo }: { name: string; photo: string | null }) {
 }
 
 function Alert({ order, onGo }: { order: RiderOrder; onGo: () => void }) {
+  const t = useT();
   return (
     <main className="flex min-h-dvh flex-col items-center gap-[22px] bg-accent px-6 pt-14 pb-6 text-white">
       <span className="flex size-[148px] items-center justify-center rounded-full bg-white text-accent shadow-[0_0_0_14px_rgba(255,255,255,0.18)]">
@@ -204,6 +207,7 @@ function Alert({ order, onGo }: { order: RiderOrder; onGo: () => void }) {
 }
 
 function Delivery({ order, busy, onDelivered }: { order: RiderOrder; busy: boolean; onDelivered: () => void }) {
+  const t = useT();
   const mapUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${order.address}, Karachi`)}`;
   const big = "flex h-[150px] flex-col items-center justify-center gap-2.5 rounded-[22px] text-2xl font-bold";
   return (
@@ -246,6 +250,7 @@ function Delivery({ order, busy, onDelivered }: { order: RiderOrder; busy: boole
 
 /** "Take from customer Rs 900", or "Paid" when the wallet payment was confirmed. */
 function Collect({ order, className, label, size }: { order: RiderOrder; className: string; label: string; size: string }) {
+  const t = useT();
   return (
     <div className={`flex flex-col gap-0.5 self-stretch rounded-[22px] px-[22px] py-[18px] ${className}`}>
       <div className={`text-base font-semibold ${label}`}>{t.takeFromCustomer}</div>

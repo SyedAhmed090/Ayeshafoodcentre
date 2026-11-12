@@ -6,7 +6,8 @@ import { counterMove } from "@/app/counter/actions";
 import { useCounter } from "@/components/staff/CounterShell";
 import { StaffHeader } from "@/components/staff/StaffHeader";
 import { BikeIcon, CheckIcon, CrossIcon, PhoneCardIcon, PhoneIcon } from "@/components/icons";
-import { en as t, fmt } from "@/lib/i18n/en";
+import { fmt } from "@/lib/i18n";
+import { useT } from "@/components/staff/StaffText";
 import { rs } from "@/lib/money";
 import type { CounterAction } from "@/lib/order-rules";
 import type { getCheckDetails } from "@/lib/orders";
@@ -16,6 +17,7 @@ type Order = NonNullable<Awaited<ReturnType<typeof getCheckDetails>>>;
 const bigBtn = "flex flex-col items-center justify-center gap-3.5 rounded-[22px] font-display text-[34px] font-bold tracking-[-0.5px]";
 
 export function CheckView({ order }: { order: Order }) {
+  const t = useT();
   const router = useRouter();
   const { showUndo, refresh } = useCounter();
   const [noMoney, setNoMoney] = useState(false);

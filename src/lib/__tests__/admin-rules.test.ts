@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { AdminError, checkbox, mobile, pin, rupees, text } from "@/lib/admin-rules";
+import { AdminError, checkbox, clock, mobile, pin, rupees, text } from "@/lib/admin-rules";
 
 const fd = (o: Record<string, string>) => {
   const f = new FormData();
@@ -31,5 +31,19 @@ describe("admin form checks", () => {
     expect(() => text(fd({ n: "   " }), "n", "Name")).toThrow("Name is required.");
     expect(checkbox(fd({ c: "on" }), "c")).toBe(true);
     expect(checkbox(fd({}), "c")).toBe(false);
+  });
+});
+
+describe("clock", () => {
+  const fd = (v: string) => {
+    const f = new FormData();
+    f.set("t", v);
+    return f;
+  };
+  it("reads a time box as minutes, empty as null", () => {
+    expect(clock(fd("13:30"), "t", "Opens")).toBe(810);
+    expect(clock(fd("00:00"), "t", "Opens")).toBe(0);
+    expect(clock(fd(""), "t", "Opens")).toBeNull();
+    expect(() => clock(fd("24:00"), "t", "Opens")).toThrow("Opens must be a time");
   });
 });

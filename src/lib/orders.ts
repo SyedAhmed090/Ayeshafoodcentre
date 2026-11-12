@@ -4,7 +4,8 @@ import { db } from "@/lib/db";
 import { deferPush } from "@/lib/push";
 import { emit } from "@/lib/realtime";
 import { getSettings } from "@/lib/settings";
-import { dateOnly, karachiDate } from "@/lib/time";
+import { dateOnly, karachiDate, shopStatus } from "@/lib/time";
+import { rs } from "@/lib/money";
 import { deleteUpload, saveScreenshot } from "@/lib/uploads";
 import {
   MOVES,
@@ -31,9 +32,18 @@ async function nextOrderNumber(tx: Prisma.TransactionClient, day: Date): Promise
 }
 
 export async function placeOrder(input: PlaceOrderInput): Promise<{ token: string }> {
-  const { name, phone, address, lines } = validateOrderInput(input);
+  const { name, phone, address, lines, clientKey } = validateOrderInput(input);
+  const placed = await orderByKey(clientKey);
+  if (placed) return placed;
   const settings = await getSettings();
-  if (!settings.shopOpen) throw new OrderError("Sorry, the shop is closed right now.");
+  const { open, opensAt } = shopStatus(settings);
+  if (!open) throw new OrderError(opensAt ? `Sorry, the shop is closed. We take orders from ${opensAt}.` : "Sorry, the shop is closed right now.");
+
+  const customer = await db.customer.findUnique({ where: { phone }, select: { blocked: true } });
+  if (customer?.blocked) throw new OrderError("Please call the shop to place your order.");
+  // shortcut: count-then-insert, so two orders sent at the same moment can make it 4; fine for stopping a prankster.
+  const openOrders = await db.order.count({ where: { customer: { phone }, status: { in: UNFINISHED } } });
+  if (openOrders >= MAX_OPEN_PER_PHONE) throw new OrderError("You already have orders on the way. Please call the shop to order more.");
 
   const items = await db.menuItem.findMany({
     where: { id: { in: lines.map((l) => l.id) }, active: true, soldOut: false, category: { active: true } },
@@ -48,6 +58,7 @@ export async function placeOrder(input: PlaceOrderInput): Promise<{ token: strin
     return { menuItemId: item.id, name: item.name, price: item.price, qty: l.qty };
   });
   const subtotal = orderItems.reduce((sum, i) => sum + i.price * i.qty, 0);
+  if (subtotal < settings.minOrder) throw new OrderError(`The smallest order we deliver is ${rs(settings.minOrder)} of food.`);
   const deliveryFee = settings.deliveryFee;
 
   const shot = input.payment === "WALLET" && input.screenshot ? await saveScreenshot(input.screenshot) : null;
@@ -70,7 +81,9 @@ export async function placeOrder(input: PlaceOrderInput): Promise<{ token: strin
           paymentMethod: input.payment,
           status: input.payment === "WALLET" ? "CHECK_PAYMENT" : "NEW",
           customerId: customer.id,
+          customerName: name,
           address,
+          clientKey,
           subtotal,
           deliveryFee,
           total: subtotal + deliveryFee,
@@ -83,9 +96,17 @@ export async function placeOrder(input: PlaceOrderInput): Promise<{ token: strin
     emit("counter", "order:changed", { id: order.id });
   } catch (e) {
     if (shot) await deleteUpload(shot.path);
+    // The same checkout sent twice at once: the first one won, answer with its order.
+    const first = (e as { code?: string }).code === "P2002" ? await orderByKey(clientKey) : null;
+    if (first) return first;
     throw e;
   }
   return { token };
+}
+
+/** The order an earlier try of this checkout already placed, if any. */
+async function orderByKey(clientKey: string | null): Promise<{ token: string } | null> {
+  return clientKey ? db.order.findUnique({ where: { clientKey }, select: { token: true } }) : null;
 }
 
 const publicSelect = {
@@ -98,7 +119,7 @@ const publicSelect = {
   total: true,
   items: { select: { name: true, qty: true, price: true }, orderBy: { id: "asc" } },
   rider: { select: { name: true, phone: true } },
-  screenshot: { select: { id: true } },
+  screenshot: { select: { result: true } },
 } as const;
 
 /** What the customer's status page may see: no address, no other customers, no internal ids. */
@@ -111,6 +132,8 @@ export type PublicOrder = {
   paid: boolean;
   /** Was a wallet order the shop switched to cash because the money never came. */
   switchedToCash: boolean;
+  /** Cancelled at the payment check because the money never came. */
+  paymentNotFound: boolean;
   wallet: boolean;
   subtotal: number;
   deliveryFee: number;
@@ -131,6 +154,7 @@ export async function getPublicOrder(token: string): Promise<PublicOrder | null>
     paymentMethod: o.paymentMethod,
     paid: o.paymentMethod === "WALLET" && o.status !== "CHECK_PAYMENT" && o.status !== "CANCELLED",
     switchedToCash: hadScreenshot && o.paymentMethod === "COD",
+    paymentNotFound: o.status === "CANCELLED" && o.paymentMethod === "WALLET" && o.screenshot?.result === "NOT_RECEIVED",
     wallet: hadScreenshot,
     subtotal: o.subtotal,
     deliveryFee: o.deliveryFee,
@@ -159,11 +183,14 @@ export type BoardOrder = {
   paymentMethod: PaymentMethod;
   total: number;
   items: { qty: number; name: string }[];
+  /** "10 Nov" for an order from an earlier day (numbers restart daily, so it can share a number with today's), else null. */
+  from: string | null;
 };
 
 /** Everything on the counter board: orders in Check, New, Cooking and Ready, newest first (as designed). */
 export async function getBoard(): Promise<BoardOrder[]> {
-  return db.order.findMany({
+  const today = dateOnly(karachiDate()).getTime();
+  const rows = await db.order.findMany({
     where: { status: { in: ["CHECK_PAYMENT", "NEW", "COOKING", "READY"] } },
     orderBy: { id: "desc" },
     select: {
@@ -173,9 +200,14 @@ export async function getBoard(): Promise<BoardOrder[]> {
       type: true,
       paymentMethod: true,
       total: true,
+      day: true,
       items: { select: { qty: true, name: true }, orderBy: { id: "asc" } },
     },
   });
+  return rows.map(({ day, ...o }) => ({
+    ...o,
+    from: day.getTime() < today ? day.toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "UTC" }) : null,
+  }));
 }
 
 /**
@@ -277,7 +309,7 @@ export async function createWalkin(lines: CartLine[]): Promise<{ id: number; num
     throw new OrderError("Bad walk-in order");
   }
   const items = await db.menuItem.findMany({
-    where: { id: { in: lines.map((l) => l.id) }, active: true, soldOut: false },
+    where: { id: { in: lines.map((l) => l.id) }, active: true, soldOut: false, category: { active: true } },
     select: { id: true, name: true, price: true },
   });
   if (items.length !== lines.length) throw new OrderError("An item is sold out");
@@ -335,6 +367,42 @@ export async function getCheckDetails(orderId: number) {
   };
 }
 
+// ── Owner ───────────────────────────────────────────────────────────
+
+/** Statuses an order can be stuck in: placed but never delivered or handed over. */
+export const UNFINISHED: OrderStatus[] = ["CHECK_PAYMENT", "NEW", "COOKING", "READY", "OUT_FOR_DELIVERY"];
+
+/** More unfinished orders than this from one phone is a prankster or a mistake: they call the shop instead. */
+const MAX_OPEN_PER_PHONE = 3;
+
+/** Block the phone behind an order (fake orders) and cancel every unfinished order from it. Returns how many were cancelled. */
+export async function blockOrderPhone(orderId: number): Promise<number> {
+  const o = await db.order.findUnique({ where: { id: orderId }, select: { customerId: true } });
+  if (!o?.customerId) return 0;
+  await db.customer.update({ where: { id: o.customerId }, data: { blocked: true } });
+  const open = await db.order.findMany({ where: { customerId: o.customerId, status: { in: UNFINISHED } }, select: { id: true } });
+  let cancelled = 0;
+  for (const { id } of open) if (await cancelUnfinished(id)) cancelled++;
+  return cancelled;
+}
+
+/**
+ * The owner cancels an unfinished order: a customer who called to cancel, a fake order, or one
+ * stuck with a rider who left. A rider out with it is free again. False if it had already finished.
+ */
+export async function cancelUnfinished(orderId: number): Promise<boolean> {
+  const o = await db.order.findUnique({ where: { id: orderId }, select: { status: true, riderId: true } });
+  if (!o || !UNFINISHED.includes(o.status)) return false;
+  const done = await db.$transaction(async (tx) => {
+    const { count } = await tx.order.updateMany({ where: { id: orderId, status: o.status }, data: { status: "CANCELLED", cancelledAt: new Date() } });
+    if (count === 0) return false;
+    if (o.status === "OUT_FOR_DELIVERY" && o.riderId) await tx.rider.update({ where: { id: o.riderId }, data: { status: "FREE" } });
+    return true;
+  });
+  if (done) await announce(orderId, o.riderId);
+  return done;
+}
+
 // ── Riders ──────────────────────────────────────────────────────────
 
 /** What the rider takes from the customer: nothing if the wallet payment was confirmed. */
@@ -352,7 +420,7 @@ export async function getPickDetails(orderId: number) {
       paymentMethod: true,
       total: true,
       address: true,
-      customer: { select: { name: true } },
+      customerName: true,
       items: { select: { qty: true, name: true }, orderBy: { id: "asc" } },
     },
   });
@@ -363,7 +431,7 @@ export async function getPickDetails(orderId: number) {
     select: { id: true, name: true, photo: true, status: true },
   });
   return {
-    order: { id: o.id, number: o.number, items: o.items, customerName: o.customer?.name ?? "", address: o.address ?? "", collect: toCollect(o) },
+    order: { id: o.id, number: o.number, items: o.items, customerName: o.customerName ?? "", address: o.address ?? "", collect: toCollect(o) },
     riders,
   };
 }
@@ -433,7 +501,8 @@ export async function getRiderOrder(riderId: number): Promise<RiderOrder | null>
       paymentMethod: true,
       total: true,
       address: true,
-      customer: { select: { name: true, phone: true } },
+      customerName: true,
+      customer: { select: { phone: true } },
       items: { select: { qty: true } },
     },
   });
@@ -443,7 +512,7 @@ export async function getRiderOrder(riderId: number): Promise<RiderOrder | null>
     number: o.number,
     collect: toCollect(o),
     itemCount: o.items.reduce((n, i) => n + i.qty, 0),
-    customerName: o.customer?.name ?? "",
+    customerName: o.customerName ?? "",
     phone: o.customer?.phone ?? null,
     address: o.address ?? "",
   };

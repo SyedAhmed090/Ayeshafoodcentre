@@ -1,7 +1,7 @@
 "use client";
 
 import { playChime, unlockAudio } from "@/lib/chime";
-import { en as t } from "@/lib/i18n/en";
+import { useT } from "@/components/staff/StaffText";
 import { BellIcon } from "@/components/icons";
 
 /**
@@ -9,6 +9,7 @@ import { BellIcon } from "@/components/icons";
  * until then) and keeps the screen awake. Render it while not started; `onStart` runs inside the tap.
  */
 export function TapToStart({ onStart }: { onStart: () => void | Promise<void> }) {
+  const t = useT();
   async function start() {
     await unlockAudio();
     playChime();

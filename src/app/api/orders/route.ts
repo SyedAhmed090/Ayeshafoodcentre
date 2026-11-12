@@ -26,6 +26,7 @@ export async function POST(req: Request) {
       address: String(form.get("address") ?? ""),
       payment: String(form.get("payment") ?? "") as "COD" | "WALLET",
       lines,
+      clientKey: String(form.get("key") ?? ""),
       screenshot: file instanceof File && file.size > 0 ? Buffer.from(await file.arrayBuffer()) : null,
     });
     return Response.json({ token });

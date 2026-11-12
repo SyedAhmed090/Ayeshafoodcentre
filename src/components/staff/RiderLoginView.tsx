@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { riderLogin } from "@/app/rider/actions";
-import { en as t } from "@/lib/i18n/en";
+import { useT } from "@/components/staff/StaffText";
 import { BackIcon } from "@/components/icons";
 import { PinPad } from "@/components/staff/PinPad";
 import { RiderPhoto } from "@/components/staff/RiderPhoto";
@@ -11,6 +11,7 @@ type Rider = { id: number; name: string; photo: string | null };
 
 /** Tap your photo, then your 4-digit PIN. No typing. */
 export function RiderLoginView({ riders }: { riders: Rider[] }) {
+  const t = useT();
   const [rider, setRider] = useState<Rider | null>(null);
 
   if (!rider) {

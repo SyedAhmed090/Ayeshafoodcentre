@@ -4,17 +4,20 @@ import bcrypt from "bcryptjs";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
+import { STAFF_LANGS } from "@/lib/i18n";
+import { blockOrderPhone, cancelUnfinished } from "@/lib/orders";
 import { getSettings } from "@/lib/settings";
 import { clearFails, isLocked, recordFail } from "@/lib/rate-limit";
 import { clientKey, ownerDevice, signInDevice, signOutDevice } from "@/lib/staff-auth";
 import { deleteUpload, savePhoto, UploadError, type PhotoKind } from "@/lib/uploads";
-import { AdminError, checkbox, file, int, mobile, optionalText, pin, rupees, text } from "@/lib/admin-rules";
+import { AdminError, checkbox, clock, file, int, mobile, optionalText, pin, rupees, text } from "@/lib/admin-rules";
 
 /** What every admin form gets back: an error to show, or a short "Saved". */
 export type FormResult = { error?: string; ok?: string } | null;
 
 const PER_CLIENT_MAX = 5;
-const ALL_MAX = 20;
+// A password can't be guessed in 200 tries the way a PIN can; a low shared limit only lets a stranger lock the owner out.
+const ALL_MAX = 200;
 const ALL = "owner-pw:all";
 
 export async function ownerLogin(_prev: FormResult, fd: FormData): Promise<FormResult> {
@@ -65,10 +68,20 @@ async function newPhoto(fd: FormData, kind: PhotoKind): Promise<string | null | 
 
 export async function saveSettings(_prev: FormResult, fd: FormData): Promise<FormResult> {
   return owner(async () => {
+    const openMinute = clock(fd, "opens", "Opens at");
+    const closeMinute = clock(fd, "closes", "Closes at");
+    if ((openMinute === null) !== (closeMinute === null)) throw new AdminError("Fill in both opening and closing time, or leave both empty.");
+    const staffLang = String(fd.get("staffLang") ?? "en");
+    if (!(staffLang in STAFF_LANGS)) throw new AdminError("Choose a staff screen language.");
     await db.settings.update({
       where: { id: 1 },
       data: {
         shopOpen: checkbox(fd, "shopOpen"),
+        openMinute,
+        closeMinute,
+        minOrder: rupees(fd, "minOrder", "Minimum order", 20_000),
+        deliveryArea: optionalText(fd, "deliveryArea", "Delivery area", 120),
+        staffLang,
         deliveryFee: rupees(fd, "deliveryFee", "Delivery fee", 5000),
         merchantNumber: mobile(fd, "merchantNumber", "Merchant number")!,
         shopPhone: mobile(fd, "shopPhone", "Shop phone")!,
@@ -146,6 +159,27 @@ export async function setSoldOut(itemId: number, soldOut: boolean) {
   if (!(await ownerDevice())) redirect("/admin/login");
   if (!Number.isInteger(itemId)) throw new Error("Bad item");
   await db.menuItem.update({ where: { id: itemId }, data: { soldOut: soldOut === true } });
+}
+
+/** Cancel a stuck or unwanted order from the report page. False if it had finished meanwhile. */
+export async function cancelOrder(orderId: number): Promise<boolean> {
+  if (!(await ownerDevice())) redirect("/admin/login");
+  if (!Number.isInteger(orderId)) throw new Error("Bad order");
+  return cancelUnfinished(orderId);
+}
+
+/** Block the number behind a fake order; its unfinished orders are cancelled too. */
+export async function blockPhone(orderId: number): Promise<number> {
+  if (!(await ownerDevice())) redirect("/admin/login");
+  if (!Number.isInteger(orderId)) throw new Error("Bad order");
+  return blockOrderPhone(orderId);
+}
+
+export async function unblockCustomer(customerId: number) {
+  if (!(await ownerDevice())) redirect("/admin/login");
+  if (!Number.isInteger(customerId)) throw new Error("Bad customer");
+  await db.customer.update({ where: { id: customerId }, data: { blocked: false } });
+  revalidatePath("/admin/settings");
 }
 
 // ── Riders ──────────────────────────────────────────────────────────

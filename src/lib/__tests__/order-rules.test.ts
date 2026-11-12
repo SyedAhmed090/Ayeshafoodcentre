@@ -17,7 +17,14 @@ describe("validateOrderInput", () => {
       phone: "03001234567",
       address: "House 5, Street 2, Sector 5C",
       lines: [{ id: 1, qty: 2 }],
+      clientKey: null,
     });
+  });
+
+  it("keeps a well-formed checkout key and drops anything else", () => {
+    const key = "0123456789abcdef0123456789abcdef0123";
+    expect(validateOrderInput({ ...ok, clientKey: key }).clientKey).toBe(key);
+    expect(validateOrderInput({ ...ok, clientKey: "x'; DROP" }).clientKey).toBeNull();
   });
 
   it("drops zero-quantity lines but rejects an empty cart", () => {

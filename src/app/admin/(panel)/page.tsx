@@ -1,19 +1,41 @@
 import Link from "next/link";
+import { blockPhone, cancelOrder } from "@/app/admin/actions";
+import { ConfirmButton } from "@/components/admin/ConfirmButton";
 import { DayPicker } from "@/components/admin/DayPicker";
 import { card, PageTitle } from "@/components/admin/ui";
 import { db } from "@/lib/db";
 import { rs } from "@/lib/money";
+import { formatPhone } from "@/lib/phone";
+import { UNFINISHED } from "@/lib/orders";
 import { dayReport } from "@/lib/report";
-import { dateOnly, dayParam, karachiDate } from "@/lib/time";
+import { dateOnly, dayParam, karachiDate, karachiTime } from "@/lib/time";
 
 export const metadata = { title: "Daily report" };
 
 export default async function ReportPage({ searchParams }: PageProps<"/admin">) {
   const day = dayParam((await searchParams).day);
-  const orders = await db.order.findMany({
-    where: { day: dateOnly(day) },
-    select: { status: true, type: true, paymentMethod: true, total: true, rider: { select: { id: true, name: true } } },
-  });
+  const [orders, unfinished] = await Promise.all([
+    db.order.findMany({
+      where: { day: dateOnly(day) },
+      select: { status: true, type: true, paymentMethod: true, total: true, rider: { select: { id: true, name: true } } },
+    }),
+    // Every day, not just the one shown: a stuck order from last week needs cancelling too.
+    db.order.findMany({
+      where: { status: { in: UNFINISHED } },
+      orderBy: { id: "asc" },
+      select: {
+        id: true,
+        number: true,
+        status: true,
+        type: true,
+        total: true,
+        createdAt: true,
+        customerName: true,
+        customer: { select: { phone: true } },
+        rider: { select: { name: true } },
+      },
+    }),
+  ]);
   const r = dayReport(orders);
   const isToday = day === karachiDate();
 
@@ -68,9 +90,48 @@ export default async function ReportPage({ searchParams }: PageProps<"/admin">) 
           </tfoot>
         </table>
       </section>
+
+      {unfinished.length > 0 && (
+        <section className={card}>
+          <div>
+            <h2 className="font-display text-xl font-bold">Not finished</h2>
+            <p className="text-sm text-muted">
+              Cancel an order the customer called off, or one stuck with a rider who left. Block a fake order&apos;s number: its orders are
+              cancelled and it can&apos;t order online again (unblock in Settings).
+            </p>
+          </div>
+          <ul className="divide-y divide-line">
+            {unfinished.map((o) => (
+              <li key={o.id} className="flex items-center gap-3 py-2.5 text-[15px]">
+                <div className="min-w-0 grow">
+                  <div className="font-semibold">
+                    #{o.number} · {STATUS[o.status]} · {rs(o.total)}
+                  </div>
+                  <div className="truncate text-sm text-muted">
+                    {karachiDate(o.createdAt) === karachiDate() ? karachiTime(o.createdAt) : `${karachiDate(o.createdAt)} ${karachiTime(o.createdAt)}`}
+                    {" · "}
+                    {o.type === "WALKIN" ? "Walk-in" : `${o.customerName} · ${o.customer ? formatPhone(o.customer.phone) : ""}`}
+                    {o.rider && ` · ${o.rider.name}`}
+                  </div>
+                </div>
+                {o.customer && <ConfirmButton label="Block" confirm="Yes, block" action={blockPhone.bind(null, o.id)} />}
+                <ConfirmButton label="Cancel" confirm={`Yes, cancel #${o.number}`} action={cancelOrder.bind(null, o.id)} />
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
     </>
   );
 }
+
+const STATUS: Record<string, string> = {
+  CHECK_PAYMENT: "Checking payment",
+  NEW: "New",
+  COOKING: "Cooking",
+  READY: "Ready",
+  OUT_FOR_DELIVERY: "Out with rider",
+};
 
 function Stat({ label, value, sub }: { label: string; value: string; sub?: React.ReactNode }) {
   return (

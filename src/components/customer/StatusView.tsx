@@ -24,7 +24,7 @@ const TITLES: Record<PublicOrder["status"], string> = {
 
 const tel = (phone: string) => `tel:${phone.replace(/\s/g, "")}`;
 
-export function StatusView({ initial, shopPhone }: { initial: PublicOrder; shopPhone: string }) {
+export function StatusView({ initial, shopPhone, origin }: { initial: PublicOrder; shopPhone: string; origin: string }) {
   const [order, setOrder] = useState(initial);
 
   useEffect(() => {
@@ -64,7 +64,11 @@ export function StatusView({ initial, shopPhone }: { initial: PublicOrder; shopP
           </motion.h1>
         </AnimatePresence>
         {order.status === "CANCELLED" && (
-          <p className="text-[15px] text-muted">The shop could not find your payment. Call the shop if you have paid.</p>
+          <p className="text-[15px] text-muted">
+            {order.paymentNotFound
+              ? "The shop could not find your payment. Call the shop if you have paid."
+              : "The shop cancelled this order. Call the shop if you have a question."}
+          </p>
         )}
       </div>
 
@@ -123,13 +127,26 @@ export function StatusView({ initial, shopPhone }: { initial: PublicOrder; shopP
         </div>
       </div>
 
-      <a
-        href={tel(shopPhone)}
-        className="mt-auto flex h-[60px] items-center justify-center gap-2.5 rounded-2xl border border-line-2 bg-surface text-base font-semibold"
-      >
-        <PhoneIcon />
-        Call the shop
-      </a>
+      <div className="mt-auto flex flex-col gap-2.5">
+        {order.status !== "CANCELLED" && order.status !== "DELIVERED" && order.status !== "COMPLETED" && (
+          // No WhatsApp API: this opens the customer's own WhatsApp with the link typed in, to send to themselves or family.
+          <a
+            href={`https://wa.me/?text=${encodeURIComponent(`Ayesha Food Centre order #${order.number}: ${origin}/order/${order.token}`)}`}
+            target="_blank"
+            rel="noopener"
+            className="flex h-[60px] items-center justify-center gap-2.5 rounded-2xl bg-ready text-base font-semibold text-white"
+          >
+            Save this link on WhatsApp
+          </a>
+        )}
+        <a
+          href={tel(shopPhone)}
+          className="flex h-[60px] items-center justify-center gap-2.5 rounded-2xl border border-line-2 bg-surface text-base font-semibold"
+        >
+          <PhoneIcon />
+          Call the shop
+        </a>
+      </div>
     </div>
   );
 }

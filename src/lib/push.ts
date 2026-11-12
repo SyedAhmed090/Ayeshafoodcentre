@@ -2,7 +2,8 @@ import "server-only";
 import webpush from "web-push";
 import { after } from "next/server";
 import { db } from "@/lib/db";
-import { en as t, fmt } from "@/lib/i18n/en";
+import { fmt, staffTexts } from "@/lib/i18n";
+import { getSettings } from "@/lib/settings";
 
 // Rings a rider's phone when the app is in the background or closed. The open app rings by itself (socket).
 
@@ -39,7 +40,7 @@ async function pushNewOrder(riderId: number, number: number) {
     where: { riderId, role: "RIDER", pushEndpoint: { not: null } },
     select: { id: true, pushEndpoint: true, pushP256dh: true, pushAuth: true },
   });
-  const body = JSON.stringify({ title: t.newOrder, body: fmt("#{n}", { n: number }), url: "/rider" });
+  const body = JSON.stringify({ title: staffTexts((await getSettings()).staffLang).newOrder, body: fmt("#{n}", { n: number }), url: "/rider" });
   await Promise.all(
     devices.map(async (d) => {
       try {

@@ -1,4 +1,4 @@
-// Every word on the counter and rider screens. Add ur.ts with the same keys for Urdu; components only read keys.
+// Every word on the counter and rider screens. ur.ts has the same keys; components get the chosen one from useT().
 // Shared by server and client code: no imports from server-only modules here.
 
 export const en = {
@@ -27,6 +27,7 @@ export const en = {
   paid: "Paid",
   cash: "Cash Rs {n}",
   walkin: "Walk-in",
+  fromDay: "From {d}",
 
   // Check payment
   orderNo: "Order #{n}",

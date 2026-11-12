@@ -1,11 +1,12 @@
 "use client";
 
 import { counterLogin } from "@/app/counter/actions";
-import { en as t } from "@/lib/i18n/en";
+import { useT } from "@/components/staff/StaffText";
 import { PinPad } from "@/components/staff/PinPad";
 
 // Done once when the tablet is set up; afterwards the device stays logged in.
 export default function CounterLogin() {
+  const t = useT();
   return (
     <main className="flex min-h-dvh flex-col items-center justify-center gap-8 bg-ground p-6 select-none">
       <PinPad

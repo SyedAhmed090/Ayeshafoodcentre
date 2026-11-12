@@ -1,11 +1,12 @@
 "use client";
 
-import { en as t } from "@/lib/i18n/en";
+import { useT } from "@/components/staff/StaffText";
 import { UNDO_WINDOW_MS } from "@/lib/order-rules";
 import { UndoIcon } from "@/components/icons";
 
 /** "Undo #48" with a 10 s shrinking bar, bottom centre on staff screens. The caller hides it when time runs out. */
 export function UndoBar({ number, until, onUndo }: { number: number; until: number; onUndo: () => void }) {
+  const t = useT();
   return (
     <div className="fixed inset-x-0 bottom-6 flex justify-center px-5">
       <button

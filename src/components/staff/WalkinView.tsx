@@ -6,13 +6,14 @@ import { counterWalkin } from "@/app/counter/actions";
 import { useCounter } from "@/components/staff/CounterShell";
 import { StaffHeader } from "@/components/staff/StaffHeader";
 import { CheckIcon, MinusIcon, PlusIcon } from "@/components/icons";
-import { en as t } from "@/lib/i18n/en";
+import { useT } from "@/components/staff/StaffText";
 import { rs } from "@/lib/money";
 import type { CategoryView, MenuItemView } from "@/lib/menu";
 import { Photo } from "@/components/Photo";
 
 /** Built only by tapping food photos and +/− (no typing), then "Cash taken" puts it on the board in New. */
 export function WalkinView({ menu }: { menu: CategoryView[] }) {
+  const t = useT();
   const router = useRouter();
   const { markSeen, showUndo, refresh } = useCounter();
   const [catId, setCatId] = useState(menu[0]?.id);

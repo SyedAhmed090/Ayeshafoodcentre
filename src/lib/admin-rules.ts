@@ -52,6 +52,15 @@ export function mobile(fd: FormData, key: string, label: string, optional = fals
   return formatPhone(n);
 }
 
+/** A time box ("13:30") as minutes after midnight, or null when empty. */
+export function clock(fd: FormData, key: string, label: string): number | null {
+  const v = str(fd, key);
+  if (!v) return null;
+  const m = /^(\d{2}):(\d{2})$/.exec(v);
+  if (!m || Number(m[1]) > 23 || Number(m[2]) > 59) throw new AdminError(`${label} must be a time like 12:00.`);
+  return Number(m[1]) * 60 + Number(m[2]);
+}
+
 /** An uploaded file, or null if none was chosen. */
 export function file(fd: FormData, key: string): File | null {
   const f = fd.get(key);

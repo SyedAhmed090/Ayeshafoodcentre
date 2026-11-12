@@ -9,6 +9,9 @@ export async function GET(_req: Request, ctx: RouteContext<"/api/counter/screens
   const id = Number((await ctx.params).id);
   const shot = Number.isInteger(id) ? await db.paymentScreenshot.findUnique({ where: { id }, select: { path: true } }) : null;
   if (!shot) return new Response(null, { status: 404 });
-  const { data, type } = await readUpload(shot.path);
+  // Files aren't in the database backup, so after a restore the row can outlive its file.
+  const file = await readUpload(shot.path).catch(() => null);
+  if (!file) return new Response(null, { status: 404 });
+  const { data, type } = file;
   return new Response(new Uint8Array(data), { headers: { "Content-Type": type, "Cache-Control": "private, max-age=3600" } });
 }

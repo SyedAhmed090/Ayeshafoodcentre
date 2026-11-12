@@ -1,12 +1,12 @@
 # Ayesha Food Centre — ordering system
 
-**Status (2026-11-11): Phase 5 (shop testing + launch) in progress.** Phases 0–4 done. Everything that can be done before the server exists is done: nightly backups, DEPLOY.md launch checklist, a 51-check whole-system test (all passing), and the site side of the rider APK (Trusted Web Activity). Blocked on the user: Hostinger access + domain, and the shop's real menu, photos, riders and merchant number. The Phase 3–4 review points below were never answered; treat them as accepted unless the user says otherwise.
+**Status (2026-11-12): Phase 5 (shop testing + launch) in progress.** Phases 0–4 done. Everything that can be done before the server exists is done: nightly backups (emailed off-site), uptime check, DEPLOY.md launch checklist, a 51-check whole-system test (all passing), the site side of the rider APK (Trusted Web Activity), a full audit with all 8 findings fixed, and 8 improvements (see below). Blocked on the user: Hostinger access + domain, and the shop's real menu, photos, riders and merchant number. The Phase 3–4 review points below were never answered; treat them as accepted unless the user says otherwise.
 
 ## Resume here
 
-1. `git fetch` and check you're up to date with `origin/main` (last commit: `docs: update status after rider APK prep`).
+1. `git fetch` and check you're up to date with `origin/main` (last commit: `audit fixes + off-site backups, uptime check, shop rules, Urdu staff screens`).
 2. Re-read the live brief doc in case it changed since `docs/BRIEF.md` was copied.
-3. Ask the user for what's still missing (Hostinger access, domain, shop data) and for a decision on the open finding about old orders staying on the board. Then work through DEPLOY.md "Launch checklist", confirming each step on the live server with the user first (deploying is outward-facing). Build the rider APK after the domain is live (DEPLOY.md §8).
+3. Ask the user for what's still missing (Hostinger access, domain, shop data incl. opening hours, minimum order, delivery area, backup email) and for approval of the new customer copy and the Urdu wording (native speaker). Then work through DEPLOY.md "Launch checklist", confirming each step on the live server with the user first (deploying is outward-facing). Build the rider APK after the domain is live (DEPLOY.md §8).
 4. Start the database and `npm run dev` (see "Run it locally"). Stopping a background `npm run dev` leaves `node server.mjs --dev` running (it holds `.next/dev/lock`, whose `pid` is the process to kill), or the next start fails with "Another next dev server is already running".
 
 ### Rider APK (decided 2026-11-11: Option 1, Trusted Web Activity)
@@ -17,7 +17,30 @@ User chose a TWA APK (thin Android shell around `/rider`, same web app and Web P
 
 51 checks over 4 simulated devices (customer phone, counter tablet, rider phone, owner laptop): logins, cash / wallet / no-money / cancel / undo / switch-to-cash flows, live status page and board updates, rider pick + one-order-at-a-time, rider alert by socket and by **real Web Push through FCM with the rider app closed**, Call/Map links, walk-in, report numbers vs orders placed, wallet page, shop closed (UI + API), sold out, lockouts, auth on private routes. All passed after fixing: missing site icon (favicon 404) and the lockout message now shows on the 5th wrong try. The script lives only in the session scratchpad (not in the repo).
 Still needs real devices: chime volume, wake lock, vibration (Chrome only allows it after a real finger tap), push on Android with the screen locked / battery saver, PWA install.
-**Open finding for the user:** unfinished orders from earlier days stay on the counter board forever (yesterday's #1/#2 test orders are still there), and daily numbers restart, so numbers can repeat on the board. Needs a decision (e.g. owner can cancel a stuck order in admin, or old cards get a "yesterday" mark).
+The old-orders finding was fixed in the 2026-11-12 audit (see below).
+
+### Audit fixes (2026-11-12)
+
+Full-repo audit, all 8 findings fixed:
+- Owner can cancel any unfinished order (Report → "Not finished", lists every day; two-tap confirm). `orders.ts` `cancelUnfinished` frees a rider who was out with it. Covers: customer calls to cancel a cash order, fake orders, an order stuck with a rider taken off the list. Board cards from earlier days show a red "From 10 Nov" chip (`BoardOrder.from`).
+- Checkout sends a random `key` made once per checkout; `Order.clientKey` is unique, so a retry after a lost answer returns the first order's token instead of placing it twice.
+- `Order.customerName` copied at order time (the `Customer` row's name changes with the next order from that phone); rider and pick-a-rider screens read it. Migration `order_name_client_key` backfills old rows.
+- Status page cancelled text: "could not find your payment" only when cancelled at the payment check (`PublicOrder.paymentNotFound`); otherwise "The shop cancelled this order. Call the shop if you have a question." (new copy, review with the user).
+- Owner password shared lock raised 20 → 200 tries (a stranger could keep the owner locked out). PIN limits unchanged.
+- `src/lib/__tests__/orders.db.test.ts`: the database rules (retry, double tap, one rider one order, undo frees rider, owner cancel) against the local DB from `.env`; skipped without `DATABASE_URL`. The DB must be running for `npm test`.
+- `/realtime-test` removed; DEPLOY.md §4 now checks WebSockets with the real board + DevTools.
+- Screenshot route answers 404 (not 500) when the file is missing after a restore; walk-ins refuse items in hidden categories.
+
+### Improvements (2026-11-12, user asked for all 8)
+
+- Off-site backup: `backup.ts` emails the nightly dump to `BACKUP_EMAIL_TO` over SMTP (`nodemailer`, same as hukam) when set; `emailed` in the cron answer. Uploads aren't emailed (too big): DEPLOY.md §5 says Hostinger backups + monthly File Manager zip.
+- Uptime: `GET /api/health` (DB `SELECT 1`, 503 on failure) for UptimeRobot (DEPLOY.md §5 "Uptime alert").
+- Fake orders: at most 3 unfinished orders per phone (`MAX_OPEN_PER_PHONE` in `orders.ts`, count-then-insert marked `shortcut:`); `Customer.blocked`. Report → Not finished has Block (blocks the number and cancels its unfinished orders, `blockOrderPhone`); Settings lists blocked numbers with Unblock. No per-IP limit on purpose: Karachi mobile networks put many customers behind one IP.
+- Opening hours: `Settings.openMinute`/`closeMinute` (Karachi minutes, close < open = past midnight, both null = switch only). `time.ts` `shopStatus()` (tested) used by the menu ("Closed · orders from 12:00 pm"), checkout and `placeOrder`. The switch still closes the shop inside the hours.
+- Checkout: `Settings.minOrder` (food total, also enforced in `placeOrder`) and `deliveryArea` ("We deliver to: …" under the address). New customer copy, review with the user.
+- Status page: "Save this link on WhatsApp" (plain `wa.me/?text=` link, no API; hidden once finished/cancelled). The origin comes from the request headers.
+- Order again: `cart.ts` keeps the last placed order (`afc:last`); the menu shows an "Order again" card when the cart is empty and the shop is open, with only items still on the menu.
+- Urdu staff screens: `src/lib/i18n/ur.ts` (same keys as `en.ts`, my translation: have a native speaker check it), `Settings.staffLang` chosen in admin Settings, shop-wide. Counter (`src/app/counter/layout.tsx`) and rider layouts wrap `StaffTextProvider`; components call `useT()` (`src/components/staff/StaffText.tsx`); push titles use `staffTexts()`. Layout stays left-to-right; Urdu text uses the phone's system font (Inter has no Urdu letters).
 
 ### Open points for the user to approve (raised, not yet answered)
 
@@ -33,7 +56,7 @@ Still needs real devices: chime volume, wake lock, vibration (Chrome only allows
 
 ### Phase 5 (shop testing + launch): what's next
 
-From the brief: load the real menu, photos, riders and merchant number (through the admin); test with the real counter person and riders on the real devices and fix anything they hesitate over; deploy to Hostinger with the domain, HTTPS and daily database backups (DEPLOY.md). Then do the Hostinger WebSocket check and remove `/realtime-test`.
+From the brief: load the real menu, photos, riders and merchant number (through the admin); test with the real counter person and riders on the real devices and fix anything they hesitate over; deploy to Hostinger with the domain, HTTPS and daily database backups (DEPLOY.md). Then do the Hostinger WebSocket check (DEPLOY.md §4).
 
 ## Run it locally
 
@@ -43,7 +66,7 @@ From the brief: load the real menu, photos, riders and merchant number (through 
 3. `npm install && npx prisma migrate deploy && npm run db:seed`
 4. `npm run dev` (runs `server.mjs --dev`, NOT `next dev`, otherwise no Socket.IO) → http://localhost:3000
 5. Counter: http://localhost:3000/counter → PIN `1234` once, then "Tap to start". Rider: http://localhost:3000/rider in another browser profile (each profile is one device) → tap a rider, PIN, "Tap to start". Web Push only works with VAPID keys in `.env` (see `.env.example`); without them the open app still rings.
-6. `npm test` runs the unit tests.
+6. `npm test` runs the unit tests, plus the database tests when the local DB is running.
 
 Seed logins: counter PIN `1234`, riders 1/2/3 PINs `1111`/`2222`/`3333`, owner `/admin` password = `SEED_OWNER_PASSWORD` in `.env` (local: `owner-dev-123`).
 
@@ -51,7 +74,7 @@ Seed logins: counter PIN `1234`, riders 1/2/3 PINs `1111`/`2222`/`3333`, owner `
 
 - `server.mjs`: custom server, Next + Socket.IO on one port; sets `globalThis.io`.
 - `src/lib/realtime.ts`: `emit(room, event, data)` for route handlers and server actions.
-- `src/lib/i18n/en.ts`: every staff-facing word (add `ur.ts` with the same keys later).
+- `src/lib/i18n/en.ts` + `ur.ts`: every staff-facing word; `useT()` in staff components, `staffTexts(lang)` on the server.
 - `src/app/globals.css`: Look B tokens in Tailwind 4 `@theme` (the default palette is switched off, so only these colours exist).
 - `prisma/schema.prisma` + `prisma/seed.ts`; `DEPLOY.md` for Hostinger.
 - Customer site: `src/app/(customer)/` (menu `/`, `/checkout`, `/order/[token]`), views in `src/components/customer/`. `Motion.tsx` sets reduced motion to follow the phone's setting.
@@ -59,7 +82,7 @@ Seed logins: counter PIN `1234`, riders 1/2/3 PINs `1111`/`2222`/`3333`, owner `
 - `src/lib/orders.ts`: `placeOrder` (prices from DB, race-safe daily number, customer upsert by phone), `getPublicOrder` (what the status page may see), `announce` (socket push to `order:<token>`, `counter`, and `rider:<id>` when given), plus the counter and rider functions below.
 - `src/lib/order-rules.ts`: pure input checks, the move table and undo rules (unit tested in `src/lib/__tests__`).
 - `src/lib/uploads.ts`: screenshots hashed (SHA-256 of the file as uploaded), then resized with sharp and stored under `UPLOAD_DIR/screenshots/`.
-- API: `POST /api/orders` (multipart), `GET /api/orders/[token]`, `GET /api/counter/board`, `GET /api/counter/screenshot/[id]` (counter and owner), `GET /api/rider/current` (rider phone only), Phase 0 `/realtime-test` (keep until the Hostinger WebSocket check is done).
+- API: `POST /api/orders` (multipart), `GET /api/orders/[token]`, `GET /api/counter/board`, `GET /api/counter/screenshot/[id]` (counter and owner), `GET /api/rider/current` (rider phone only).
 - Shared icons: `src/components/icons.tsx`. `src/components/Photo.tsx`: a stored photo or the design's grey placeholder box.
 - Owner admin: `src/app/admin/` — `login/`, `(panel)/` (report `page.tsx`, `wallet/`, `menu/` + `menu/[id]`, `riders/` + `riders/[id]`, `settings/`; layout requires the owner), `actions.ts` (every action goes through `owner()`, which checks the login, turns `AdminError`/`UploadError` into a form message, and revalidates `/admin` so forms refill with saved values). Form pieces in `src/components/admin/` (`ActionForm` = useActionState wrapper, `ui.tsx`).
 - Nightly backup: `src/lib/backup.ts` (data-only SQL dump, gzipped, last 14 kept in `BACKUP_DIR`) + pure `backup-sql.ts` (tested), called by `GET /api/cron/backup` with `CRON_SECRET` (`src/lib/cron.ts`). Ported from hukam. Restore verified locally by table checksums.

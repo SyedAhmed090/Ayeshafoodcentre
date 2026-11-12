@@ -28,6 +28,7 @@ Environment variables (see `.env.example`):
 - `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` = rider push keys, made once with `npx web-push generate-vapid-keys` (a new pair makes every rider phone tap Start again to re-subscribe). `VAPID_SUBJECT` = `mailto:` the shop's email. Without them riders only get alerts while the app is open. Push needs HTTPS, so test it on the real domain, not by IP.
 - `BACKUP_DIR` = an **absolute** folder outside `public_html` for the nightly backups, e.g. `/home/<user>/ayesha-backups`.
 - `CRON_SECRET` = a random string, 16+ characters (`node -e "console.log(require('crypto').randomBytes(24).toString('base64url'))"`). The cron job below sends it.
+- `BACKUP_EMAIL_TO` + `SMTP_HOST` / `SMTP_PORT` / `SMTP_USER` / `SMTP_PASS` / `MAIL_FROM` = the off-site copy of the nightly backup (§5). A Hostinger mailbox works: `smtp.hostinger.com`, port `465`, the mailbox address and its password. Send it to an address **not** on Hostinger (e.g. the owner's Gmail).
 
 ## 3. First deploy
 
@@ -40,12 +41,12 @@ Then restart the app from hPanel.
 
 ## 4. WebSocket check (brief: confirm in Phase 0)
 
-Open `https://<domain>/realtime-test`, tap **Send ping from server**.
-- `connected (websocket)` and a "Received …" line → live sockets work. Done.
-- `connected (polling)` and a "Received …" line → Hostinger's proxy blocks WebSockets, and Socket.IO has already fallen back to HTTP long polling. Orders still arrive live, just with a bit more delay and load. This covers the brief's "SSE + polling" fallback with no extra code, as long as the app runs as **one** process (polling needs every request to reach the same process).
-- `not connected` → the app isn't running through `server.mjs`. Check the entry file.
+Open the counter board on the tablet (or a laptop), then place a test order from a phone. It must appear on the board, with the chime, without reloading. To see which way it arrived, open the board on a laptop with DevTools → Network:
+- a `socket.io/?…transport=websocket` row with status 101 → live sockets work. Done.
+- only `transport=polling` rows → Hostinger's proxy blocks WebSockets, and Socket.IO has already fallen back to HTTP long polling. Orders still arrive live, just with a bit more delay and load. This covers the brief's "SSE + polling" fallback with no extra code, as long as the app runs as **one** process (polling needs every request to reach the same process).
+- the order only shows after a reload → the app isn't running through `server.mjs`. Check the entry file.
 
-Delete `src/app/realtime-test` and `src/app/api/realtime-test` once the Phase 2 board uses live updates.
+Cancel the test order afterwards in the admin (Report → Not finished).
 
 ## 5. Nightly backups
 
@@ -55,9 +56,13 @@ curl -fsS -H "Authorization: Bearer <CRON_SECRET>" https://<domain>/api/cron/bac
 ```
 If the panel won't take a header, use `https://<domain>/api/cron/backup?key=<CRON_SECRET>`.
 
-Check it once by opening that `?key=` URL in a browser: it answers `{"ok":true,"file":"ayesha-….sql.gz",…}` and the file appears in `BACKUP_DIR`. The last 14 are kept. Also download one now and then (File Manager) or keep Hostinger's own backups on: a copy on the same server doesn't help if the server is lost.
+Check it once by opening that `?key=` URL in a browser: it answers `{"ok":true,"file":"ayesha-….sql.gz",…,"emailed":"<address>"}`, the file appears in `BACKUP_DIR` and the email arrives. The last 14 are kept on the server; the emailed copies are the off-site ones (a copy on the same server doesn't help if the server is lost). `"emailed":null` means the SMTP variables aren't set.
 
-Photos and payment screenshots are files in `UPLOAD_DIR`, not in the database backup. Copy that folder separately if the server itself is lost.
+Photos and payment screenshots are files in `UPLOAD_DIR`, too big to email. Keep Hostinger's own weekly backups on (hPanel → Files → Backups) and download the `UPLOAD_DIR` folder as a zip from File Manager once a month. Losing them loses old screenshots and photos, not orders or money: menu and rider photos can be uploaded again.
+
+### Uptime alert
+
+`https://<domain>/api/health` answers `{"ok":true}` while the app and its database work, and fails otherwise. Make a free account at uptimerobot.com → New monitor → HTTP(s) → that URL, every 5 minutes, alert contact = the owner's email (and the UptimeRobot phone app for push alerts). If the app crashes, the owner hears within minutes instead of from customers.
 
 ## 6. Restoring a backup
 
@@ -95,10 +100,10 @@ Updates: every change to the site reaches the APK at once. Rebuild the APK only 
 
 1. Domain pointed at the plan, SSL on (push alerts and installing the rider app need HTTPS).
 2. Database, Node app, environment variables (§1–2), first deploy and seed (§3).
-3. WebSocket check (§4), then delete `src/app/realtime-test` and `src/app/api/realtime-test`.
-4. Cron backup (§5) and one manual check that a file appears.
+3. WebSocket check (§4).
+4. Cron backup (§5) and one manual check that a file appears and the email arrives. Uptime monitor on `/api/health` (§5).
 5. Owner logs in to `/admin`, changes the password, then remove `SEED_OWNER_PASSWORD` from the environment.
-6. In `/admin`: the real menu, prices and photos (hide or rename the placeholder items), riders with photos, phones and PINs (hide the three seed riders), merchant number, shop phone, delivery fee, counter PIN.
+6. In `/admin`: the real menu, prices and photos (hide or rename the placeholder items), riders with photos, phones and PINs (hide the three seed riders), merchant number, shop phone, delivery fee, counter PIN. Settings: opening hours, minimum order, delivery area, staff screen language (English / Urdu).
 7. Counter tablet: open `/counter`, PIN, Tap to start. Check the chime is loud enough and the screen stays on.
 8. Each rider's Android phone: install the rider APK (§8), or in Chrome open `/rider` and "Add to Home screen". Log in, Tap to start, allow notifications. Send a test order and check it rings with the app closed and the screen locked. Turn off battery optimisation for Chrome if it doesn't.
 9. A full test day with real orders (cash, wallet with a real screenshot, walk-in); compare the admin report with the till and the merchant app.

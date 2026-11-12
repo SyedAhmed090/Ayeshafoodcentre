@@ -6,21 +6,23 @@ import { LayoutGroup, motion } from "framer-motion";
 import { counterMove } from "@/app/counter/actions";
 import { useCounter } from "@/components/staff/CounterShell";
 import { BellIcon, BikeIcon, CheckIcon, FlameIcon, PhoneCardIcon, PlusIcon } from "@/components/icons";
-import { en as t, fmt } from "@/lib/i18n/en";
+import { fmt } from "@/lib/i18n";
+import { useT } from "@/components/staff/StaffText";
 import { rs } from "@/lib/money";
 import type { BoardOrder } from "@/lib/orders";
 import type { CounterAction } from "@/lib/order-rules";
 
 const COLUMNS = [
-  { status: "CHECK_PAYMENT", label: t.colCheck, icon: <PhoneCardIcon size={24} strokeWidth={2.2} />, head: "bg-check-tint text-check-ink" },
-  { status: "NEW", label: t.colNew, icon: <BellIcon />, head: "bg-new-tint text-new-ink" },
-  { status: "COOKING", label: t.colCooking, icon: <FlameIcon size={24} strokeWidth={2.2} />, head: "bg-cooking-tint text-cooking-ink" },
-  { status: "READY", label: t.colReady, icon: <CheckIcon size={24} />, head: "bg-ready-tint text-ready-ink" },
+  { status: "CHECK_PAYMENT", label: "colCheck", icon: <PhoneCardIcon size={24} strokeWidth={2.2} />, head: "bg-check-tint text-check-ink" },
+  { status: "NEW", label: "colNew", icon: <BellIcon />, head: "bg-new-tint text-new-ink" },
+  { status: "COOKING", label: "colCooking", icon: <FlameIcon size={24} strokeWidth={2.2} />, head: "bg-cooking-tint text-cooking-ink" },
+  { status: "READY", label: "colReady", icon: <CheckIcon size={24} />, head: "bg-ready-tint text-ready-ink" },
 ] as const;
 
 const btn = "flex h-[60px] items-center justify-center gap-2.5 rounded-[14px] text-[19px] font-semibold";
 
 export default function Board() {
+  const t = useT();
   const { orders } = useCounter();
   return (
     <>
@@ -40,10 +42,10 @@ export default function Board() {
           {COLUMNS.map((col) => {
             const list = orders.filter((o) => o.status === col.status);
             return (
-              <section key={col.status} aria-label={col.label} className="flex min-h-0 flex-col gap-3.5">
+              <section key={col.status} aria-label={t[col.label]} className="flex min-h-0 flex-col gap-3.5">
                 <div className={`flex h-14 shrink-0 items-center gap-2.5 rounded-[14px] px-4 text-xl font-bold ${col.head}`}>
                   {col.icon}
-                  <span className="grow">{col.label}</span>
+                  <span className="grow">{t[col.label]}</span>
                   <span>{list.length}</span>
                 </div>
                 <div className="-mx-2 -mt-1 flex min-h-0 flex-col gap-3.5 overflow-y-auto px-2 pt-1 pb-24">
@@ -61,6 +63,7 @@ export default function Board() {
 }
 
 function OrderCard({ order: o }: { order: BoardOrder }) {
+  const t = useT();
   const { unseen, markSeen, showUndo, refresh } = useCounter();
   const [busy, setBusy] = useState(false);
   const isNew = unseen.has(o.id);
@@ -95,7 +98,10 @@ function OrderCard({ order: o }: { order: BoardOrder }) {
       }`}
     >
       <div className="flex items-baseline justify-between">
-        <div className="font-display text-[40px] leading-none font-bold tracking-[-1px]">#{o.number}</div>
+        <div className="flex items-baseline gap-2.5">
+          <div className="font-display text-[40px] leading-none font-bold tracking-[-1px]">#{o.number}</div>
+          {o.from && <span className="rounded-lg bg-new-tint px-2 py-1 text-[15px] font-semibold text-new-ink">{fmt(t.fromDay, { d: o.from })}</span>}
+        </div>
         {o.status === "CHECK_PAYMENT" ? (
           <div className="font-display text-[22px] font-bold">{rs(o.total)}</div>
         ) : (

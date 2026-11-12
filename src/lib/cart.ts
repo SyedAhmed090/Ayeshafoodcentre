@@ -7,6 +7,7 @@ import { useSyncExternalStore } from "react";
 
 const CART_KEY = "afc:cart";
 const DETAILS_KEY = "afc:details";
+const LAST_KEY = "afc:last";
 
 export type Cart = Record<string, number>; // menu item id → quantity
 export type Details = { name: string; phone: string; address: string };
@@ -63,6 +64,20 @@ export function changeQty(id: number, delta: number) {
 
 export function clearCart() {
   setCart({});
+}
+
+/** Fill the cart with these quantities (Order again). */
+export function fillCart(next: Cart) {
+  setCart({ ...next });
+}
+
+/** The cart of this phone's last placed order, for "Order again". */
+export function loadLastOrder(): Cart {
+  return read<Cart>(LAST_KEY, {});
+}
+
+export function saveLastOrder(c: Cart) {
+  write(LAST_KEY, c);
 }
 
 export function loadDetails(): Details {

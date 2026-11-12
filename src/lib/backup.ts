@@ -2,6 +2,7 @@ import "server-only";
 import { mkdir, readdir, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { gzipSync } from "node:zlib";
+import nodemailer from "nodemailer";
 import { db } from "@/lib/db";
 import { ident, insertStatements } from "@/lib/backup-sql";
 
@@ -9,6 +10,8 @@ import { ident, insertStatements } from "@/lib/backup-sql";
 // the counter tablet and rider phones keep working without anyone typing a PIN.
 const SKIP = new Set(["_prisma_migrations"]);
 const KEEP = 14;
+// Most mailboxes refuse attachments over ~20 MB.
+const MAX_EMAIL_BYTES = 15 * 1024 * 1024;
 
 /**
  * A data-only SQL dump of every table. Restore: `npx prisma migrate deploy` on an empty
@@ -39,7 +42,7 @@ function backupDir(): string {
   return dir;
 }
 
-/** Nightly job: write a gzipped dump and keep the last 14. */
+/** Nightly job: write a gzipped dump, keep the last 14, and email it off-site if configured. */
 export async function runBackup() {
   const dir = backupDir();
   await mkdir(dir, { recursive: true });
@@ -48,5 +51,31 @@ export async function runBackup() {
   await writeFile(path.join(dir, name), gz);
   const old = (await readdir(dir)).filter((f) => /^ayesha-.*\.sql\.gz$/.test(f)).sort().slice(0, -KEEP);
   for (const f of old) await unlink(path.join(dir, f));
-  return { file: name, bytes: gz.length, removed: old.length };
+
+  // A copy on the same server is lost with the server: mail one away too.
+  let emailed: string | null = null;
+  const to = process.env.BACKUP_EMAIL_TO;
+  if (to && process.env.SMTP_HOST) {
+    if (gz.length > MAX_EMAIL_BYTES) {
+      emailed = "skipped: too big for email";
+    } else {
+      const port = Number(process.env.SMTP_PORT || 465);
+      await nodemailer
+        .createTransport({
+          host: process.env.SMTP_HOST,
+          port,
+          secure: port === 465,
+          auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
+        })
+        .sendMail({
+          from: process.env.MAIL_FROM || process.env.SMTP_USER,
+          to,
+          subject: `Ayesha Food Centre backup ${name}`,
+          text: "Nightly database backup attached. Keep it somewhere safe: it holds customers' names, phones and addresses.",
+          attachments: [{ filename: name, content: gz }],
+        });
+      emailed = to;
+    }
+  }
+  return { file: name, bytes: gz.length, removed: old.length, emailed };
 }

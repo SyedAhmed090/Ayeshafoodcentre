@@ -3,16 +3,17 @@
 import Link from "next/link";
 import { useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { changeQty, useCart } from "@/lib/cart";
+import { changeQty, fillCart, loadLastOrder, useCart, useHydrated } from "@/lib/cart";
 import { rs } from "@/lib/money";
 import type { CategoryView, MenuItemView } from "@/lib/menu";
 import { PhoneIcon, PlusIcon } from "@/components/icons";
 import { Photo } from "@/components/Photo";
 
-type Props = { menu: CategoryView[]; shopOpen: boolean; shopPhone: string };
+type Props = { menu: CategoryView[]; shopOpen: boolean; opensAt: string | null; shopPhone: string };
 
-export function MenuView({ menu, shopOpen, shopPhone }: Props) {
+export function MenuView({ menu, shopOpen, opensAt, shopPhone }: Props) {
   const cart = useCart();
+  const hydrated = useHydrated();
   const all = menu.flatMap((c) => c.items);
   const deal = all.find((i) => i.featured);
   // The deal has its own card, so a category holding only the deal gets no chip.
@@ -32,7 +33,7 @@ export function MenuView({ menu, shopOpen, shopPhone }: Props) {
           <h1 className="font-display text-[22px] font-bold tracking-[-0.3px]">Ayesha Food Centre</h1>
           <div className="flex items-center gap-1.5 text-[13px] font-medium text-muted">
             <span className={`size-2 rounded-full ${shopOpen ? "bg-ready" : "bg-accent"}`} />
-            {shopOpen ? "Open now · Home delivery" : "Closed now"}
+            {shopOpen ? "Open now · Home delivery" : opensAt ? `Closed · orders from ${opensAt}` : "Closed now"}
           </div>
         </div>
         <a
@@ -43,6 +44,9 @@ export function MenuView({ menu, shopOpen, shopPhone }: Props) {
           <PhoneIcon />
         </a>
       </header>
+
+      {/* Read from this phone's storage, so only after hydration. */}
+      {hydrated && shopOpen && count === 0 && <OrderAgain byId={byId} />}
 
       {deal && <DealCard item={deal} canAdd={shopOpen && !deal.soldOut} />}
 
@@ -100,6 +104,28 @@ export function MenuView({ menu, shopOpen, shopPhone }: Props) {
           </motion.div>
         )}
       </AnimatePresence>
+    </div>
+  );
+}
+
+/** This phone's last order, with whatever is still on the menu and not sold out. */
+function OrderAgain({ byId }: { byId: Map<string, MenuItemView> }) {
+  const [last] = useState(loadLastOrder);
+  const lines = Object.entries(last).filter(([id, q]) => q > 0 && byId.get(id) && !byId.get(id)!.soldOut);
+  if (lines.length === 0) return null;
+  return (
+    <div className="flex items-center gap-3 rounded-[18px] border border-line bg-surface p-3.5 shadow-card">
+      <div className="flex min-w-0 grow flex-col gap-0.5">
+        <div className="text-[15px] font-semibold">Order again</div>
+        <div className="truncate text-[13px] text-muted">{lines.map(([id, q]) => `${q} × ${byId.get(id)!.name}`).join(", ")}</div>
+      </div>
+      <button
+        type="button"
+        onClick={() => fillCart(Object.fromEntries(lines))}
+        className="h-11 shrink-0 rounded-xl bg-ink px-4 text-sm font-semibold text-white"
+      >
+        Add to cart
+      </button>
     </div>
   );
 }

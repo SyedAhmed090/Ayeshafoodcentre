@@ -13,6 +13,8 @@ export type PlaceOrderInput = {
   payment: "COD" | "WALLET";
   lines: CartLine[];
   screenshot: Buffer | null;
+  /** Random key the checkout makes once, so a retry can't place the order twice. */
+  clientKey?: string | null;
 };
 
 const MAX_LINES = 30;
@@ -38,7 +40,9 @@ export function validateOrderInput(input: PlaceOrderInput) {
   }
   const lines = all.filter((l) => l.qty > 0);
   if (lines.length === 0) throw new OrderError("Your cart is empty.");
-  return { name, phone, address, lines };
+  // A bad key is dropped, not refused: the order still goes through, just without retry protection.
+  const clientKey = input.clientKey && /^[0-9a-f]{36}$/.test(input.clientKey) ? input.clientKey : null;
+  return { name, phone, address, lines, clientKey };
 }
 
 // ── Status moves (docs/BRIEF.md "Order states and who moves them") ──

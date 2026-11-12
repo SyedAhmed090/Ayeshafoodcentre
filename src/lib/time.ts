@@ -27,3 +27,30 @@ export function shiftDay(ymd: string, days: number): string {
 export function karachiTime(at: Date): string {
   return at.toLocaleTimeString("en-PK", { timeZone: "Asia/Karachi", hour: "numeric", minute: "2-digit" });
 }
+
+/** Minutes after midnight in Karachi. */
+export function karachiMinute(at: Date = new Date()): number {
+  const d = new Date(at.getTime() + PKT_OFFSET_MS);
+  return d.getUTCHours() * 60 + d.getUTCMinutes();
+}
+
+/** 750 → "12:30 pm" */
+export function formatMinute(m: number): string {
+  const h = Math.floor(m / 60) % 24;
+  return `${h % 12 || 12}:${String(m % 60).padStart(2, "0")} ${h < 12 ? "am" : "pm"}`;
+}
+
+export type ShopHours = { shopOpen: boolean; openMinute: number | null; closeMinute: number | null };
+
+/**
+ * Whether customers can order now: the owner's switch is on and, if hours are set, it's within them.
+ * `opensAt` says when ordering starts again, for a shop closed only by its hours.
+ */
+export function shopStatus(s: ShopHours, at: Date = new Date()): { open: boolean; opensAt: string | null } {
+  if (!s.shopOpen) return { open: false, opensAt: null };
+  if (s.openMinute === null || s.closeMinute === null || s.openMinute === s.closeMinute) return { open: true, opensAt: null };
+  const m = karachiMinute(at);
+  // close < open: open past midnight, e.g. 12:00 pm to 2:00 am.
+  const open = s.openMinute < s.closeMinute ? m >= s.openMinute && m < s.closeMinute : m >= s.openMinute || m < s.closeMinute;
+  return { open, opensAt: open ? null : formatMinute(s.openMinute) };
+}

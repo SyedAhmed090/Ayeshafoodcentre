@@ -4,18 +4,27 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { changeQty, clearCart, loadDetails, saveDetails, useCart, useHydrated, type Details } from "@/lib/cart";
+import { changeQty, clearCart, loadDetails, saveDetails, saveLastOrder, useCart, useHydrated, type Details } from "@/lib/cart";
 import { rs } from "@/lib/money";
 import type { MenuItemView } from "@/lib/menu";
 import { BackIcon, MinusIcon, PlusIcon, UploadIcon } from "@/components/icons";
 
-type Props = { items: MenuItemView[]; deliveryFee: number; merchantNumber: string; shopOpen: boolean };
+type Props = {
+  items: MenuItemView[];
+  deliveryFee: number;
+  merchantNumber: string;
+  shopOpen: boolean;
+  /** "12:00 pm" when closed only by the opening hours. */
+  opensAt: string | null;
+  minOrder: number;
+  deliveryArea: string | null;
+};
 type Payment = "COD" | "WALLET";
 
 const inputCls = "h-[50px] rounded-xl border border-line-2 px-3.5 text-base outline-none focus:border-ink";
 const labelCls = "text-[13px] font-semibold text-ink-2";
 
-export function CheckoutView({ items, deliveryFee, merchantNumber, shopOpen }: Props) {
+export function CheckoutView({ items, deliveryFee, merchantNumber, shopOpen, opensAt, minOrder, deliveryArea }: Props) {
   const router = useRouter();
   const cart = useCart();
   const hydrated = useHydrated();
@@ -26,6 +35,8 @@ export function CheckoutView({ items, deliveryFee, merchantNumber, shopOpen }: P
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // Same key on every try of this checkout: if an answer got lost, the retry gets the order already placed.
+  const [key] = useState(() => Array.from(crypto.getRandomValues(new Uint8Array(18)), (b) => b.toString(16).padStart(2, "0")).join(""));
   const fileRef = useRef<HTMLInputElement>(null);
 
   const byId = new Map(items.map((i) => [String(i.id), i]));
@@ -34,6 +45,15 @@ export function CheckoutView({ items, deliveryFee, merchantNumber, shopOpen }: P
     .map(([id, qty]) => ({ item: byId.get(id)!, qty }));
   const food = lines.reduce((sum, l) => sum + l.item.price * l.qty, 0);
   const total = food + deliveryFee;
+  const short = minOrder - food;
+  // The one reason ordering can't go ahead right now, shown above the button.
+  const blocker = !shopOpen
+    ? opensAt
+      ? `Sorry, the shop is closed. We take orders from ${opensAt}.`
+      : "Sorry, the shop is closed right now."
+    : short > 0
+      ? `Add ${rs(short)} more food: the smallest order we deliver is ${rs(minOrder)}.`
+      : null;
 
   // The cart lives in this device's storage, so there is nothing to show until hydration.
   if (!hydrated) return null;
@@ -69,6 +89,7 @@ export function CheckoutView({ items, deliveryFee, merchantNumber, shopOpen }: P
     body.append("phone", details.phone);
     body.append("address", details.address);
     body.append("payment", payment);
+    body.append("key", key);
     body.append("lines", JSON.stringify(lines.map((l) => ({ id: l.item.id, qty: l.qty }))));
     if (payment === "WALLET" && shot) body.append("screenshot", shot);
     setBusy(true);
@@ -79,6 +100,7 @@ export function CheckoutView({ items, deliveryFee, merchantNumber, shopOpen }: P
       return setError(res ? (data.error ?? "Could not place the order. Please try again.") : "No connection. Please try again.");
     }
     saveDetails(details);
+    saveLastOrder(Object.fromEntries(lines.map((l) => [l.item.id, l.qty])));
     clearCart();
     router.push(`/order/${data.token}`);
   }
@@ -170,6 +192,7 @@ export function CheckoutView({ items, deliveryFee, merchantNumber, shopOpen }: P
                 onChange={set("address")}
                 className={inputCls}
               />
+              {deliveryArea && <p className="text-[13px] text-muted">We deliver to: {deliveryArea}</p>}
             </div>
           </div>
         </div>
@@ -258,7 +281,7 @@ export function CheckoutView({ items, deliveryFee, merchantNumber, shopOpen }: P
               <span className="font-display text-[28px] font-bold tracking-[-0.5px]">{rs(total)}</span>
             </div>
             <AnimatePresence>
-              {(error || !shopOpen) && (
+              {(error || blocker) && (
                 <motion.p
                   role="alert"
                   initial={{ opacity: 0, y: -4 }}
@@ -266,14 +289,14 @@ export function CheckoutView({ items, deliveryFee, merchantNumber, shopOpen }: P
                   exit={{ opacity: 0 }}
                   className="text-[15px] font-semibold text-accent-ink"
                 >
-                  {shopOpen ? error : "Sorry, the shop is closed right now."}
+                  {blocker ?? error}
                 </motion.p>
               )}
             </AnimatePresence>
             <button
               type="button"
               onClick={placeOrder}
-              disabled={busy || !shopOpen}
+              disabled={busy || !!blocker}
               className="h-[60px] rounded-2xl bg-accent text-[17px] font-semibold text-white disabled:opacity-60"
             >
               {busy ? "Placing order…" : "Place order"}

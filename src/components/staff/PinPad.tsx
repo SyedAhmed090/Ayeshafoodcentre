@@ -1,13 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { en as t } from "@/lib/i18n/en";
+import { useT } from "@/components/staff/StaffText";
 import { BackIcon } from "@/components/icons";
 
 type Result = { error: "wrong" | "locked" } | void;
 
 /** 4 dots + number pad. Submits on the 4th digit; `submit` redirects on success or returns an error. */
 export function PinPad({ heading, submit }: { heading: React.ReactNode; submit: (pin: string) => Promise<Result> }) {
+  const t = useT();
   const [pin, setPin] = useState("");
   const [error, setError] = useState<"wrong" | "locked" | null>(null);
   const [busy, setBusy] = useState(false);

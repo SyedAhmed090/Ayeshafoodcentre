@@ -7,13 +7,15 @@ import { useCounter } from "@/components/staff/CounterShell";
 import { RiderPhoto } from "@/components/staff/RiderPhoto";
 import { StaffHeader } from "@/components/staff/StaffHeader";
 import { BikeIcon, CheckIcon } from "@/components/icons";
-import { en as t, fmt } from "@/lib/i18n/en";
+import { fmt } from "@/lib/i18n";
+import { useT } from "@/components/staff/StaffText";
 import { rs } from "@/lib/money";
 import type { getPickDetails } from "@/lib/orders";
 
 type Props = NonNullable<Awaited<ReturnType<typeof getPickDetails>>>;
 
 export function PickRiderView({ order, riders }: Props) {
+  const t = useT();
   const router = useRouter();
   const { orders, showUndo, refresh } = useCounter();
   const [busy, setBusy] = useState(false);
